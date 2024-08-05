@@ -104,33 +104,3 @@ ae_qnormnovst<-ae(quantile_normalized_novst,ref)
 View(ae_ptx$age.estimates)
 View(ae_qnorm$age.estimates) #no changes to calculated age, minimal changes to error
 View(ae_qnormnovst$age.estimates) # minimal changes to age calculated and error
-
-
-###OLD GGPLOT###
-
-## manual colors for publication (Provided by Avery):
-paultol1<-c("#4477AA", "#66CCEE", "#228833", "#CCBB44", "#EE6677", "#AA3377", "#BBBBBB")
-strns<-c("N2", "JU1088", "EG4348", "CB4856", "QX1211") # ordered by relatedness to N2
-strncols<-paultol1[c(4, 3, 2, 1, 5)] # 1:5 are best cols; re-arranging so dark blue is CB and gold is N2
-names(strncols)<-strns
-
-strain_order<-c("N2","JU1088","EG4348","CB4856","QX1211") #Custom strain order for plotting purposes
-
-titles<-as_labeller(c("CTR"="Control", "PAR1"="italic('par-1')", "POS1"="italic('pos-1')"), label_parsed)
-# this will display the proper facet titles in the plot
-
-p<-ggplot(age_estimate_final,aes(x=factor(Strain,level=strain_order),y=age.estimate,color=Strain))+
-  geom_point(na.rm=TRUE, position=position_dodge2(0.9))+
-  geom_errorbar(aes(ymin=lb,ymax=ub),position=position_dodge2(0.9))+
-  scale_color_manual(values=strncols)+
-  scale_x_discrete(guide=guide_axis(angle=45))+
-  ylab(expression(atop("Age estimation from gene expression profile",paste("(hrs after hatching)"))))+
-  xlab("Strains")+
-  theme_bw()+
-  theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14), # angle = 45, vjust = 0.55, hjust = 0
-        axis.title.y = element_text(size = 15), axis.text.y = element_text(size = 14),
-        strip.text.x = element_text(size = 14), legend.position = "right",
-        legend.text = element_text(size = 13), legend.title = element_text(size = 14))+
-  scale_shape_discrete(labels = c("control", expression(paste(italic("par-1"))), expression(paste(italic("pos-1")))))+
-  guides(color=guide_legend(order=1),shape=guide_legend(order=2))+
-  facet_wrap(~Treatment,labeller=titles)

@@ -23,13 +23,13 @@ require(scales, lib.loc = mylibloc) # for pseudolog transform
 # --- Data reading
 genesfilter<-function(gfile){
   # Reads list of genes to retain; determines if should be per strain or global [or all strains retained]
-  # In: OPTIONAL Filepath to list of genes to narrow to if desired [if omitted, all genes in --resmatinput will be used]. 
-  #       Can be no-header list of gene_ids (same genes retained for all strains) 
+  # In: OPTIONAL Filepath to list of genes to narrow to if desired [if omitted, all genes in --resmatinput will be used].
+  #       Can be no-header list of gene_ids (same genes retained for all strains)
   #       OR two-column file with columns strain, gene_id (genes will be retained in strain-specific manner)
   #       OR empty string; if so 'all' tokens will be returned
   # Out: list of $gflag, 'all', 'keepsame', OR 'bystrain': keep all genes; the same genes for each strain; or keep genes by strain
   #               $glist, 'all', OR <vector of gene_ids to keep for all strain>, OR <two-column data table with columns strain and gene_id>
-  
+
   if(gfile==""){ # Flag to keep all if no file provided
     gflag<-"all"
     glist<-"all"
@@ -47,7 +47,7 @@ genesfilter<-function(gfile){
       glist<-fread(gfile, header = F)$V1
     } # end if/else gene_id and strain in header
   }
-  
+
   return(list(gflag = gflag, glist = glist))
 }
 
@@ -59,18 +59,18 @@ freadcombdat<-function(strains, exampaseinput, inhmode, regpats, gflag, glist, t
   #      regpats, path to file containing Regulatory pattern classifications for all genes, strains for which classification could be made - columns strain, gene_id, regclass
   #     gflag, 'all', 'keepsame', OR 'bystrain': keep all genes; the same genes for each strain; or keep genes by strain
   #     glist, 'all' if gflag is 'all', OR if gflag is 'keepsame' <vector of gene_ids to keep for all strain>, OR if gflag is 'bystrain' <two-column data table with columns strain and gene_id>
-  #     totestf, Path to file containing the data to test against ASE etc! Must have columns gene_id, testcolumn value; 
+  #     totestf, Path to file containing the data to test against ASE etc! Must have columns gene_id, testcolumn value;
   #                   **if it has column strain, data will be matched in strain-specific manner; if not, data will be assigned multiply to each strain
   #     testcolumn, character name of column in totestf that has the data to keep for output
   #     informthresh, Gene must have this or more unique alignments in each sample to be considered informative for ASE/cis-trans analyses - in column unqalnmts.min in exampaseinput
   # Out: data.table with columns strain, inform [informative for ASE - T or F], regclass, inhmode, testDat [testcolumn data from totestf], <all columns in exampaseinput>
-  
+
   # --- Check all files of interest exist
   ## ASE files
   asefs<-sapply(strains, function(x) file.path(gsub("STRAIN", replacement = x, exampaseinput, fixed = T)))
   cat(paste("ASE-related results files (check that this is what you intend!:\n", paste(asefs, collapse = "\n"), "\n"))
   if(!all(file.exists(c(asefs, inhmode, regpats)))){
-    stop(paste("The following user-proved ASE-related results files DO NOT EXIST:\n", 
+    stop(paste("The following user-proved ASE-related results files DO NOT EXIST:\n",
                paste(c(asefs, inhmode, regpats)[!file.exists(c(asefs, inhmode, regpats))], collapse = "\n")))
   }
   ## test against ASE data related stuff
@@ -83,12 +83,12 @@ freadcombdat<-function(strains, exampaseinput, inhmode, regpats, gflag, glist, t
       stop(paste("Test data file (path: ", totestf, ") does not contain required columns gene_id and", testcolumn))
     }
   }
-  
+
   # --- Get all genes to keep if gflag is 'all'
   if(gflag=="all"){
     glist<-fread(asefs[1], select = "gene_id")$gene_id
   }
-  
+
   # --- Read in ASE-associated data [for genes of interest]
   dat<-rbindlist(
     lapply(names(asefs), function(strn){
@@ -114,7 +114,7 @@ freadcombdat<-function(strains, exampaseinput, inhmode, regpats, gflag, glist, t
   setkey(rp, strain, gene_id)
   dat<-rp[dat]
   rm(im, rp) # just a lil clean up
-  
+
   # --- Add in 'test' data [for genes of interest] - keys & joins by strain if it's there
   tdat<-fread(totestf, header = T)
   if("strain"%in%names(tdat)){
@@ -129,7 +129,7 @@ freadcombdat<-function(strains, exampaseinput, inhmode, regpats, gflag, glist, t
     setkey(dat, gene_id)
     dat<-tdat[dat] # this retains all genes in dat. Doing internal to if/else for correct joining
   }
-  
+
   # --- Return [with columns ordered nicely]
   setkey(dat, strain, gene_id)
   setcolorder(dat, c("strain", "gene_id", "inform", "regclass", "inhmode", "testDat"))
@@ -166,7 +166,7 @@ anovatuk<-function(dat, mystrain, testinforow, testagainstcol = "testDat", color
   #       tuklabs - data.table with columns <column name in testinfo row>, label - < or > if this category is p < 0.05 different from FIRST category in this datat
   #           (for plotting)
   #       ns - data.table with columns categorylabel, n: number of observations in each category (that are non-NA!!)
-  
+
   # Narrow data to that of interest
   thisdat<-dat[strain==mystrain & eval(parse(text = testinforow[, mynarrow])), ]
   yvals<-thisdat[, get(testagainstcol)] # naming for prettier stats calls, returns
@@ -175,15 +175,15 @@ anovatuk<-function(dat, mystrain, testinforow, testagainstcol = "testDat", color
   # ns
   ns<-data.table(as.matrix(data.table(catvals, yvals)[!is.na(yvals), table(catvals)]), keep.rownames = T)
   setnames(ns, c("categorylabel", "n"))
-  
+
   # ANOVA
   myan<-anova(lm(yvals ~ catvals))
   anout<-data.table( Df_resid = myan$Df[2], SumSq_resid = myan$`Sum Sq`[2], MeanSq_resid = myan$`Mean Sq`[2],
-                     Df_category = myan$Df[1], SumSq_category = myan$`Sum Sq`[1], 
+                     Df_category = myan$Df[1], SumSq_category = myan$`Sum Sq`[1],
                      MeanSq_category = myan$`Mean Sq`[1], Fvalue = myan$`F value`[1], pvalue = myan$`Pr(>F)`[1])
   # one way so just saving in one row
-  
-  # Tukey's HSD 
+
+  # Tukey's HSD
   mytuk<-TukeyHSD(aov(yvals ~ catvals)) # NOTE my design likely not balanced
   ## get categories separate: UPDATED way that doesn't rely on a given character not being in names. **Confirmed that given that levels = names(colorvec), this is true
   ##   also updated to work if not all categories are actually in data...
@@ -195,13 +195,13 @@ anovatuk<-function(dat, mystrain, testinforow, testagainstcol = "testDat", color
     })
   }),
   recursive = F)
-  
+
   tukout<-data.table(comparison = rownames(mytuk[[1]]), # maybeeee add column with rownames from tuk so if something's weird, can confirm
                      cat1 = sapply(mycomps, function(x) x[1]),
                      cat2 = sapply(mycomps, function(x) x[2]),
                      mytuk[[1]])
   setnames(tukout, "p adj", "tukey.padj")
-  
+
   # LABELS based on ANOVA and TUKEY results for comparison vs. first (reference level) - not for saving, for plotting
   ## asterisk if p < 0.05; next line is '>' if mean is larger than reference category, '<' if less than reference category
   mycats<-names(colorvec)
@@ -222,7 +222,7 @@ anovatuk<-function(dat, mystrain, testinforow, testagainstcol = "testDat", color
                         label = "")
   }
   setnames(tuklabs, "cat1",testinforow[, columnname]) # Name so it's same column name as in overall data
-  
+
   # Return
   return(list(anout = anout, tukout = tukout, tuklabs = tuklabs, ns = ns))
 }
@@ -235,7 +235,7 @@ chisqfull<-function(datin, catrowcol = "signifAtThresholds.ASE", rowcats = c(T, 
   #       **removes any category that are all 0s***
   # In: datin, data where rows are observations. Must have columns named with values of catrowcol, catcol
   #     catrowcol, name of column in datin that contains categories to use as rows of contingency table, output
-  #     rowcats, values of catrowcol to tabulate 
+  #     rowcats, values of catrowcol to tabulate
   #     catcol, name of column in datin that contains categories to use as columns of contingency table, output
   #     colcats, values of catcol to tabulate
   #     annotdt, optional one-row data.table with further information to include in output
@@ -249,7 +249,7 @@ chisqfull<-function(datin, catrowcol = "signifAtThresholds.ASE", rowcats = c(T, 
   #     ChiSq - test statistic for this test. Same for each row!
   #     Df - Chisq test Degrees of freedom for this test. Same for each row!
   #     pvalue - ChiSq test p-value for this test. Same for each row!
-  
+
   # Create contingency table & run chi-sq
   cttab<-sapply(colcats, function(x) datin[, sapply(rowcats, function(y) sum(get(catcol)==x & get(catrowcol)==y, na.rm = T))])
   colnames(cttab)<-colcats.names
@@ -257,13 +257,13 @@ chisqfull<-function(datin, catrowcol = "signifAtThresholds.ASE", rowcats = c(T, 
   rowcats.out<-rowcats[rowSums(cttab)!=0]
   cttab<-cttab[rowSums(cttab)!=0,]
   res<-chisq.test(cttab)
-  
+
   # Format output counts, proportions
   propAll<-data.table(t(as.matrix(colSums(cttab)/sum(cttab)))) # proportion of TOTAL genes that each column category is (will be same across output rows)
   setnames(propAll, paste0(names(propAll), "_pOfTotal"))
   propInCat<-data.table(cttab/rowSums(cttab))
   setnames(propInCat, paste0(names(propInCat), "_pOfThisRowCategory"))
-  
+
   # Annotate with other output info & return
   out<-data.table(annotdt, category = rowcats.out, cttab, propAll, propInCat,
                   ChiSq = res$statistic, Df = res$parameter, pvalue = res$p.value)
@@ -274,10 +274,10 @@ longformnsps<-function(datin, catrowcol = "signifAtThresholds.ASE", rowcats = c(
                        catcol = "domain", colcats = c("arm", "center", "tip"), annotdt = NULL,
                        catrowcol.name = catrowcol, catcol.name = catcol){
   # Originally From chrlocenrichment_asederpim.R
-  # Gets categories x chromosome domain numbers, proportions. In long format oriented way - one row per 
+  # Gets categories x chromosome domain numbers, proportions. In long format oriented way - one row per
   # In: datin, data where rows are observations. Must have columns named with values of catrowcol, catcol
   #     catrowcol, name of column in datin that contains categories to use as rows of contingency table, output
-  #     rowcats, values of catrowcol to tabulate 
+  #     rowcats, values of catrowcol to tabulate
   #     catcol, name of column in datin that contains categories to use as columns of contingency table, output
   #     colcats, values of catcol to tabulate
   #     annotdt, optional one-row data.table with further information to include in output
@@ -287,7 +287,7 @@ longformnsps<-function(datin, catrowcol = "signifAtThresholds.ASE", rowcats = c(
   # ***all Ns are sum NON NA!
   #        columns (last few not in order for ease of documentation)::
   #       <any in annotdt>
-  #       categ1name, catrowcol.name input - what is name of the category 1 column 
+  #       categ1name, catrowcol.name input - what is name of the category 1 column
   #       category1, Actual category of categ1 that this row describes (e.g. TRUE for ASE)
   #       categ2name, catcol.name input - what is name of the category 2 column
   #         category2, Actual category of categ2 that this row describes (e.g. center for domain)
@@ -299,7 +299,7 @@ longformnsps<-function(datin, catrowcol = "signifAtThresholds.ASE", rowcats = c(
   #             of genes with category 2 having categ2 name (e.g., of domain = center genes)
   #       low95.<total, thiscateg1, thiscateg2>, lower binomial 95% confidence interval bound for the proportion specified
   #       high95.<total, thiscateg1, thiscateg2>, upper binomial 95% confidence interval bound for the proportion specified
-  
+
   # subfunctions
   pci<-function(x, n, outnamesuff = ""){
     # Gets x/n proportion and 95% binomial CI. VECTORWISE. As data.table
@@ -321,7 +321,7 @@ longformnsps<-function(datin, catrowcol = "signifAtThresholds.ASE", rowcats = c(
     setnames(out, paste0(names(out), outnamesuff))
     return(out)
   }
-  
+
   # Get numbers
   ndt<-rbindlist(lapply(colcats, function(x){
     rbindlist(lapply(rowcats, function(y){
@@ -334,14 +334,14 @@ longformnsps<-function(datin, catrowcol = "signifAtThresholds.ASE", rowcats = c(
                  total.thiscateg2 = datin[, sum(get(catcol)==x & !is.na(get(catrowcol)), na.rm = T)],
                  n.thiscombo = datin[, sum(get(catcol)==x & get(catrowcol)==y, na.rm = T)])
     }))
-  })) 
-  
+  }))
+
   # Get proportions
   ndt<-data.table(ndt,
                   ndt[, pci(x = n.thiscombo, n = total.n, outnamesuff = ".total")],
                   ndt[, pci(x = n.thiscombo, n = total.thiscateg1, outnamesuff = ".thiscateg1")], # proportion of those that have ASE (EG)
                   ndt[, pci(x = n.thiscombo, n = total.thiscateg2, outnamesuff = ".thiscateg2")]) # proportion of those that are in the arm domain (EG)
-  
+
   # Add annotating columns & return
   out<-data.table(annotdt, ndt)
   return(out)
@@ -364,7 +364,7 @@ modtestbinom<-function(datin, catrowcol = "combinedrp", rowcats.ref = c('conserv
   #             ResidualDeviance, residual deviance for overall binomial model
   #             ResidualDF, DF on resiudal deviance
   #             AIC, AIC for overall binomial model
-  #         allmodres, data.table with coefficients/betas & stats on them for all comparisons of catrowcol vs reference values in rowcats.ref. Only non-overlapping comparisons output 
+  #         allmodres, data.table with coefficients/betas & stats on them for all comparisons of catrowcol vs reference values in rowcats.ref. Only non-overlapping comparisons output
   #             (i.e., results where reference category and tested category are swaps of each other not included).
   #             Columns:
   #             <any in annotDT>
@@ -375,24 +375,24 @@ modtestbinom<-function(datin, catrowcol = "combinedrp", rowcats.ref = c('conserv
   #             z.value, z value test statistic for beta from binomial glm
   #             p.value, p value (pr >|z|) from binomail glm
   #             p.bonf, Bonferroni-corrected (multi-test adjusted) p value: p.value divided by the number of tests here (each comparison included once/inverses not included)
-  
+
   # --- Set up data
   datmod<-copy(datin[, c(catcol, catrowcol), with = F])
   setnames(datmod, c("y", "x"))
-  
+
   # --- Run model with EACH category as 'reference' level (so can see difference in all pairs!)
   mods<-lapply(rowcats.ref[rowcats.ref%in%datmod$x], function(reflev){
     # Format data
     allvals<-as.character(datmod[, unique(x)])
     valsord<-c(reflev, allvals[-which(allvals==reflev)])
-    datmod[, x:=factor(x, levels = valsord)] 
+    datmod[, x:=factor(x, levels = valsord)]
     # Run model
     mod<-glm(y~x, family = "binomial", data = datmod)
     # Return
     return(mod)
   })
   names(mods)<-rowcats.ref[rowcats.ref%in%datmod$x]
-  
+
   # --- Extract overall model info
   modinfo<-data.table(NullDeviance = mods[[1]]$deviance,
                       NullDF = mods[[1]]$df.null,
@@ -413,7 +413,7 @@ modtestbinom<-function(datin, catrowcol = "combinedrp", rowcats.ref = c('conserv
     # Add final column, order correctly
     out[, reference.category:=reflev]
     setcolorder(out, c("reference.category", "tested.category"))
-    
+
     # Return
     return(out)
   }))
@@ -429,7 +429,7 @@ modtestbinom<-function(datin, catrowcol = "combinedrp", rowcats.ref = c('conserv
   if(length(torm)>0){
     allcoefs<-allcoefs[-torm, ]
   }
-  
+
   # Add Bonferroni-adjusted p-value: for the number of among-level comparisons done here. (correct because same but inverse-direction tests removed)
   allcoefs[, p.bonf:=p.value*nrow(allcoefs)]
   allcoefs[p.bonf>1, p.bonf:=1] # don't retain p-values above 1, lol
@@ -454,7 +454,7 @@ sinawmed<-function(datin, xcol = "signifAtThresholds.ASE", ycol = "pSegSites", f
   #     colorcol, name of column containing values to color by (factors)
   #     colorvec, named vector specifying colors for each value of colorcol in order they should be on plot. Names are values, values are colors
   #     boxcol, color for boxplot outline. Recommend including transparency IN this color
-  #     faclabels, optional (put F to exclude) data.table specifying labels for each facet, i.e. p-values or the like. 
+  #     faclabels, optional (put F to exclude) data.table specifying labels for each facet, i.e. p-values or the like.
   #         must have columns facrow value, faccol value, label (label has actual text to include)
   #     myxlab, x axis label
   #     myylab, y axis label
@@ -462,7 +462,7 @@ sinawmed<-function(datin, xcol = "signifAtThresholds.ASE", ycol = "pSegSites", f
   #     mysubt, subtitle
   #     myscales, passed to facetting scales=
   #     facvec, vector of values facet take to ORDER FACCROW BY (i.e., makes this a factor leveled this way)
-  
+
   # Make sure stuff is in right order
   pdat<-copy(datin)
   ## try if factors are here - they are!
@@ -472,14 +472,14 @@ sinawmed<-function(datin, xcol = "signifAtThresholds.ASE", ycol = "pSegSites", f
   }else{
     pdat[, myxcol:=get(xcol)]
   }
-  
+
   # Plot
-  plt<-ggplot(pdat, aes(myxcol, eval(as.name(ycol)))) + 
+  plt<-ggplot(pdat, aes(myxcol, eval(as.name(ycol)))) +
     ggforce::geom_sina(aes(color = mycol), alpha = 0.3, size = 0.2) +
     geom_boxplot(outlier.color = NA, alpha = 0, col = boxcol, coef = 0, lwd = 0.2) + # this boxplot shows just median and IQR
     scale_color_manual(values = colorvec) +
     xlab(myxlab) + ylab(myylab) + ggtitle(mytitle, subtitle = mysubt) +
-    theme_bw() + theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14), 
+    theme_bw() + theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14),
                        axis.title.y = element_text(size = 15), axis.text.y = element_text(size = 14),
                        title = element_text(size = 17), legend.position = "none",
                        plot.subtitle = element_text(size = 15), strip.text.x = element_text(size = 13),
@@ -489,12 +489,12 @@ sinawmed<-function(datin, xcol = "signifAtThresholds.ASE", ycol = "pSegSites", f
     if(facvec[1]!=""){ # need to add leveling in here for it to propagate through
       plt<-plt + facet_wrap(~factor(eval(as.name(facrow)), levels = facvec), scales = myscales)
     }else{
-     plt<-plt + facet_wrap(~eval(as.name(facrow)), scales = myscales) 
+     plt<-plt + facet_wrap(~eval(as.name(facrow)), scales = myscales)
     }
   }else{
-    plt<-plt + facet_grid(eval(as.name(facrow))~eval(as.name(faccol)), scales = myscales) 
+    plt<-plt + facet_grid(eval(as.name(facrow))~eval(as.name(faccol)), scales = myscales)
   }
-  
+
   # Add labels if provided
   if(is.data.table(faclabels)){ # thanks to https://stackoverflow.com/questions/11889625/annotating-text-on-individual-facet-in-ggplot2
     plt<-plt + geom_text(
@@ -505,12 +505,12 @@ sinawmed<-function(datin, xcol = "signifAtThresholds.ASE", ycol = "pSegSites", f
       vjust   = 1.5
     )
   }
-  
+
   # Other code
   # stat_summary(fun = "median", geom = "point", col = "red") +# this auto-computes and adds the medians! but couldn't figure out making it horizontal bar easily
   # geom_point(stat = "summary", fun = median, color = "red") + # this auto-computes and adds the medians! but couldn't figure out making it horizontal bar easily
-  
-  
+
+
   # Deal with if want scales to be free or not, or to do both
   # May want to re-order strains, sites - provide something with it factor-ized if so
   return(plt)
@@ -528,47 +528,47 @@ stackedbar<-function(pinhclass, mycolors, xcol = "strain", stackcol = "propName"
   #     xorder, OPTIONAL order in which to arrange categories on x axis (in xcol)
   #     legendlabel
   #     myxlab, myylab, mytitle, mysubt: plot labels as intuitively named
-  # Out: ggplot2 barplot object. Can facet this externally!   
-  
+  # Out: ggplot2 barplot object. Can facet this externally!
+
   # Format data
   pdata<-copy(pinhclass)
   pdata[,mystackcol:=factor(pdata[,get(stackcol)], levels = names(mycolors))] # relevel factor
   if(!is.na(xorder[1])){
-    # Re-level factor 
+    # Re-level factor
     pdata[,xcol:=factor(pdata[,get(xcol)], levels = xorder)]
   }else{pdata[,xcol:=get(xcol)]}
-  
+
   plt<-ggplot(pdata, aes(xcol, eval(as.name(stacknumcol)))) +
     geom_bar(aes(fill = mystackcol), stat = "identity", position = "stack") + labs(fill = legendlabel) +
     xlab(myxlab) + ylab(myylab) + ggtitle(mytitle, subtitle = mysubt) +
     scale_fill_manual(values = mycolors) + # provided colors
-    theme_bw() + theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14), 
+    theme_bw() + theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14),
                        axis.title.y = element_text(size = 15), axis.text.y = element_text(size = 14),
                        title = element_text(size = 17), legend.text = element_text(size = 13),
                        plot.subtitle = element_text(size = 15), strip.text.x = element_text(size = 15))
-  
+
   return(plt)
 }
 
-divplot<-function(onedat, xcol = "nvars.thou", ycol = "prop", xlabel = "SNVs/INDELs vs. N2 (thousands)", 
+divplot<-function(onedat, xcol = "nvars.thou", ycol = "prop", xlabel = "SNVs/INDELs vs. N2 (thousands)",
                   ylabel = "", mytitle = "", mysubt = "", mysize = 1, ymincol = "lowci", ymaxcol = "highci"){
   # # Modified from chrlocenrichment_asederpim.R; which was originally One off just to make this plot. Copied from ase_de_cistransclassification.R
   plt<-ggplot(onedat, aes(eval(as.name(xcol)), eval(as.name(ycol)))) +
     geom_pointrange(aes(ymin = eval(as.name(ymincol)), ymax = eval(as.name(ymaxcol)), color = strain), size = mysize) +
     xlim(c(0, onedat[,max(get(xcol))] + 0.1*onedat[,max(get(xcol))])) +
     xlab(xlabel) + ylab(ylabel) + ggtitle(mytitle, subtitle = mysubt) + labs(color = "Strain") + theme_bw() +
-    theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14), 
+    theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14),
           axis.title.y = element_text(size = 15), axis.text.y = element_text(size = 14),
           title = element_text(size = 17), legend.text = element_text(size = 13),
           plot.subtitle = element_text(size = 15), strip.text.x = element_text(size = 14),
           strip.text.y = element_text(size = 9))
-  
+
   return(plt)
 }
 
 
 #### Arguments & inputs ####
-p<-arg_parser("Multipurpose script to take any per-gene 'phenotype' (categorical or quantitative) and plot and test it against ASE-derived categories (ASE/not, DE/not, regulatory pattern, inheritance mode)", 
+p<-arg_parser("Multipurpose script to take any per-gene 'phenotype' (categorical or quantitative) and plot and test it against ASE-derived categories (ASE/not, DE/not, regulatory pattern, inheritance mode)",
               name = "aseetc_vs_general.R", hide.opts = TRUE)
 
 # ASE-related data inputs
@@ -590,19 +590,19 @@ p<-add_argument(p, "--inhmode",
 p<-add_argument(p, "--aseinfo",
                 help = "[[ASE-related data input]]
                 File containing information on ASE strains to use to generate ASE-relevant outputs. One row per WILD strain crossed with reference.
-                Columns: isotype, strain [wild strain - as in resmatinput naming], refparent [ref strain], nvars [number of variants differentiating wild strain and reference strain]. 
+                Columns: isotype, strain [wild strain - as in resmatinput naming], refparent [ref strain], nvars [number of variants differentiating wild strain and reference strain].
                 Wild strains ordered how you want to plot them!!",
-                default = "~/Dropbox (GaTech)/BioSci-Paaby-Ext/AlleleSpecificExpression/ASEBig2023/Analyses/Inputs/isowildref_7ASEstrains.txt")
+                type = "character")
 p<-add_argument(p, "--informthresh",
                 help = "[[ASE-related data input]]
                 Gene must have this or more unique alignments in each sample to be considered informative for ASE/cis-trans analyses",
-                default = 5) 
+                default = 5)
 
 # 'phenotype'-related data inputs
 p<-add_argument(p, "--genelist",
                 help = "[[gene-related data input]]
-                OPTIONAL Filepath to list of genes to narrow to if desired [if omitted, all genes in --resmatinput will be used]. 
-                Can be no-header list of gene_ids (same genes retained for all strains) 
+                OPTIONAL Filepath to list of genes to narrow to if desired [if omitted, all genes in --resmatinput will be used].
+                Can be no-header list of gene_ids (same genes retained for all strains)
                 OR two-column file with columns strain, gene_id (genes will be retained in strain-specific manner)",
                 default = "",
                 type = "character")
@@ -612,7 +612,7 @@ p<-add_argument(p, "--genesdescrip",
                 default = "all genes")
 p<-add_argument(p, "--totest",
                 help = "[[gene-related data input]]
-                Path to file containing the data to test against ASE etc! Must have columns gene_id, --testcolumn value; 
+                Path to file containing the data to test against ASE etc! Must have columns gene_id, --testcolumn value;
                 if it has column strain, data will be matched in strain-specific manner; if not, data will be assigned multiply to each strain",
                 type = "character")
 p<-add_argument(p, "--testcolumn",
@@ -642,7 +642,7 @@ p<-add_argument(p, "--baseoutname",
 p<-add_argument(p, "--genomebp",
                 help = "[[misc/plotting related]]
                 Length of reference genome in bp. Used to get variants vs. reference per kb.
-                Default is genome length from NCBI https://www.ncbi.nlm.nih.gov/assembly/GCF_000002985.6/ - 
+                Default is genome length from NCBI https://www.ncbi.nlm.nih.gov/assembly/GCF_000002985.6/ -
                 for ws235 but unlikely to have changed much (and not enough to be meaningful for our purposes)",
                 default = 100286401)
 
@@ -767,9 +767,9 @@ twowaytests<-data.table(myname = c("ASE informative vs uninformative", "ASE vs n
 # Multi-way comparison - regulatory pattern-style comparisons
 multiwaytests<-data.table(myname = c("Regulatory pattern (all)", "Regulatory pattern (simplified)", "Inheritance mode", "Inheritance mode (ASE informative genes)"), # long/pretty description
                           shortname = c("regpatall", "regpatsimple", "inhmode", "inhmodeinformonly"), # short name for file paths etc
-                          myxname = c("", "", "", ""), # filler - so matches twowaytests (sometimes that's helpful) 
+                          myxname = c("", "", "", ""), # filler - so matches twowaytests (sometimes that's helpful)
                           columnname = c("regclass", "combinedrp", "inhmode", "inhmode"), # column name in dat
-                          mynarrow = c("inform==T", "inform==T & !is.na(combinedrp)", "inform==T | inform==F", "inform==T"), # narrow data further than it already is for this test? 
+                          mynarrow = c("inform==T", "inform==T & !is.na(combinedrp)", "inform==T | inform==F", "inform==T"), # narrow data further than it already is for this test?
                           colorvec = c("regcols", "combinedrpcols", "inhcols", "inhcols") # colors to use
                           )
 
@@ -778,7 +778,7 @@ multiwaytests<-data.table(myname = c("Regulatory pattern (all)", "Regulatory pat
 #### Analyses if data is CONTINUOUS/QUANTITATIVE ####
 if(p$testdatatype=="quantitative"){
   cat("....Data is quantitative (per user), doing quantitative data vs. ASE etc analyses....\n")
-  
+
   # --- Mann-Whitney type data, tests
   cat("--....Doing two-way Mann-Whitney type analyses of quantitative test data vs. various gene categorizations....\n")
   # Perform tests etc
@@ -786,7 +786,7 @@ if(p$testdatatype=="quantitative"){
     # Test
     mymw<-rbindlist(lapply(strainswall, function(strn){
       thisdat<-dat[strain==strn & eval(parse(text = twowaytests[ind, mynarrow])), ]
-      res<-wilcox.test(thisdat[get(twowaytests[ind, columnname])==T, testDat], 
+      res<-wilcox.test(thisdat[get(twowaytests[ind, columnname])==T, testDat],
                        thisdat[get(twowaytests[ind, columnname])==F, testDat])
       out<-data.table(strain = strn,
                       test = twowaytests[ind, myname],
@@ -799,10 +799,10 @@ if(p$testdatatype=="quantitative"){
                       ngenes.F = thisdat[, sum(get(twowaytests[ind, columnname])==F, na.rm = T)],
                       W = res$statistic,
                       wilcox.p.value = res$p.value)
-      
+
       return(out)
     }))
-    
+
     # Plot
     ## Format labels
     mymw[, label:= paste(ifelse(T.greater, paste(twowaytests[ind, shortname], "> non; p ="),
@@ -810,28 +810,28 @@ if(p$testdatatype=="quantitative"){
                          ifelse(wilcox.p.value < 0.001, paste(formattable::scientific(wilcox.p.value, digits = 1)),
                                 round(wilcox.p.value, digits = 3)))]
     ## Make plot
-    plt<-sinawmed(datin = dat[eval(parse(text = twowaytests[ind, mynarrow])),], 
+    plt<-sinawmed(datin = dat[eval(parse(text = twowaytests[ind, mynarrow])),],
                   xcol = twowaytests[ind, columnname], ycol = "testDat", facrow = "strain", faccol = "strain",
-                  colorcol = twowaytests[ind, columnname], colorvec = eval(as.name(twowaytests[ind, colorvec])), 
+                  colorcol = twowaytests[ind, columnname], colorvec = eval(as.name(twowaytests[ind, colorvec])),
                   boxcol = rgb(0, 0, 1, 0.6), faclabels = mymw, myxlab= twowaytests[ind, myxname],
-                  myylab = p$testdatalabel, mytitle = twowaytests[ind, myname], 
+                  myylab = p$testdatalabel, mytitle = twowaytests[ind, myname],
                   mysubt = p$genesdescrip, myscales = "fixed", facvec = strainswall)
-    
+
     # Return
     return(list(mw = mymw[, .SD, .SDcols = -c(ncol(mymw))], plt = plt))
   })
-  
+
   # Save test results
-  write.table(rbindlist(lapply(mwout, function(x) x$mw)), 
+  write.table(rbindlist(lapply(mwout, function(x) x$mw)),
              file.path(p$outdir, paste0(p$baseoutname, "_twowaytests_mannwhitneyresults.txt")),
              sep = "\t", quote = F, row.names = F)
-  
+
   # Save plots (in one PDF)
   pdf(file.path(p$outdir, paste0(p$baseoutname, "_twowaytests_sinaplots.pdf")),
       max(8, 1.75*length(strainswall)), max(4, 1.6*length(strainswall)))
   invisible(lapply(mwout, function(x) print(x$plt)))
   invisible(dev.off())
-  
+
   # --- ANOVA type tests (multi-way/multi-category)
   cat("--....Doing multiway ANOVA-type analyses of quantitative test data vs. various gene categorizations....\n")
   # Perform tests & make plots
@@ -839,62 +839,62 @@ if(p$testdatatype=="quantitative"){
     myaov<-lapply(strainswall, function(strn){
      allouts<-anovatuk(dat = dat, mystrain = strn, testinforow = multiwaytests[ind, ],
                        testagainstcol = "testDat", colorvec = eval(as.name(multiwaytests[ind, colorvec])))
-      
+
       # Format for return
-      anout<-data.table(strain = strn, category = multiwaytests[ind, myname], 
+      anout<-data.table(strain = strn, category = multiwaytests[ind, myname],
                         genes = p$genesdescrip,
                         allouts$anout)
-      tukout<-data.table(strain = strn,  category = multiwaytests[ind, myname], 
-                         genes = p$genesdescrip, 
+      tukout<-data.table(strain = strn,  category = multiwaytests[ind, myname],
+                         genes = p$genesdescrip,
                          allouts$tukout)
-      tuklabs<-data.table(strain = strn,  category = multiwaytests[ind, myname], 
-                          genes = p$genesdescrip, 
+      tuklabs<-data.table(strain = strn,  category = multiwaytests[ind, myname],
+                          genes = p$genesdescrip,
                           allouts$tuklabs)
-      ns<-data.table(strain = strn,  category = multiwaytests[ind, myname], 
+      ns<-data.table(strain = strn,  category = multiwaytests[ind, myname],
                      genes = p$genesdescrip,
                      allouts$ns)
-      
+
       return(list(antab = anout, tukres = tukout, tuklabs = tuklabs, ns = ns))
     }) # end lapply over strains
-    
+
     # Format test results together
     antab<-rbindlist(lapply(myaov, function(x) x$antab))
     tukres<-rbindlist(lapply(myaov, function(x) x$tukres))
     tuklabs<-rbindlist(lapply(myaov, function(x) x$tuklabs))
     ns<-rbindlist(lapply(myaov, function(x) x$ns))
-    
+
     # --- PLOTS
     # Make plots
     ## ANOVA p-value labels
     antab[, label:=paste("ANOVA p =", ifelse(pvalue < 0.001, paste(formattable::scientific(pvalue, digits = 1)),
                                              round(pvalue, digits = 3)))]
     ### Absolute y axes
-    anplt<-sinawmed(datin = dat[eval(parse(text = multiwaytests[ind, mynarrow])) , ], 
+    anplt<-sinawmed(datin = dat[eval(parse(text = multiwaytests[ind, mynarrow])) , ],
                     xcol = multiwaytests[ind, columnname], ycol = "testDat", facrow = "strain",
-                    faccol = "strain", colorcol = multiwaytests[ind, columnname], 
+                    faccol = "strain", colorcol = multiwaytests[ind, columnname],
                     colorvec = eval(as.name(multiwaytests[ind, colorvec])),
-                    boxcol = rgb(0, 0, 0, 0.6), faclabels = antab, myxlab = multiwaytests[ind, myname], 
+                    boxcol = rgb(0, 0, 0, 0.6), faclabels = antab, myxlab = multiwaytests[ind, myname],
                     myylab = p$testdatalabel, mytitle =multiwaytests[ind, myname],
                     mysubt = p$genesdescrip, myscales = "fixed", facvec = strainswall) +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) 
+      theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
     ### log10 y axes
-    anplt.log10<-sinawmed(datin = dat[eval(parse(text = multiwaytests[ind, mynarrow])) , ], 
+    anplt.log10<-sinawmed(datin = dat[eval(parse(text = multiwaytests[ind, mynarrow])) , ],
                     xcol = multiwaytests[ind, columnname], ycol = "testDat", facrow = "strain",
-                    faccol = "strain", colorcol = multiwaytests[ind, columnname], 
+                    faccol = "strain", colorcol = multiwaytests[ind, columnname],
                     colorvec = eval(as.name(multiwaytests[ind, colorvec])),
-                    boxcol = rgb(0, 0, 0, 0.6), faclabels = antab, myxlab = multiwaytests[ind, myname], 
+                    boxcol = rgb(0, 0, 0, 0.6), faclabels = antab, myxlab = multiwaytests[ind, myname],
                     myylab = paste(p$testdatalabel, "(log10 scale)"), mytitle =multiwaytests[ind, myname],
                     mysubt = p$genesdescrip, myscales = "fixed", facvec = strainswall) +
       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
       scale_y_continuous(trans = "log10")
-    
+
     ## Tukey significant labels
     ### Absolute y axes
-    tukplt<-sinawmed(datin = dat[eval(parse(text = multiwaytests[ind, mynarrow])) , ], 
+    tukplt<-sinawmed(datin = dat[eval(parse(text = multiwaytests[ind, mynarrow])) , ],
                      xcol = multiwaytests[ind, columnname], ycol = "testDat", facrow = "strain",
-                     faccol = "strain", colorcol = multiwaytests[ind, columnname], 
+                     faccol = "strain", colorcol = multiwaytests[ind, columnname],
                      colorvec = eval(as.name(multiwaytests[ind, colorvec])),
-                     boxcol = rgb(0, 0, 0, 0.6), faclabels = F, myxlab = multiwaytests[ind, myname], 
+                     boxcol = rgb(0, 0, 0, 0.6), faclabels = F, myxlab = multiwaytests[ind, myname],
                      myylab = p$testdatalabel, mytitle =multiwaytests[ind, myname],
                      mysubt = p$genesdescrip, myscales = "fixed") +
       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
@@ -902,11 +902,11 @@ if(p$testdatatype=="quantitative"){
                                     y = Inf, label = label),
                 vjust = 1.5, size = 5, fontface = "bold")
     ### log10 y axes
-    tukplt.log10<-sinawmed(datin = dat[eval(parse(text = multiwaytests[ind, mynarrow])) , ], 
+    tukplt.log10<-sinawmed(datin = dat[eval(parse(text = multiwaytests[ind, mynarrow])) , ],
                      xcol = multiwaytests[ind, columnname], ycol = "testDat", facrow = "strain",
-                     faccol = "strain", colorcol = multiwaytests[ind, columnname], 
+                     faccol = "strain", colorcol = multiwaytests[ind, columnname],
                      colorvec = eval(as.name(multiwaytests[ind, colorvec])),
-                     boxcol = rgb(0, 0, 0, 0.6), faclabels = F, myxlab = multiwaytests[ind, myname], 
+                     boxcol = rgb(0, 0, 0, 0.6), faclabels = F, myxlab = multiwaytests[ind, myname],
                      myylab = paste(p$testdatalabel, "(log10 scale)"), mytitle =multiwaytests[ind, myname],
                      mysubt = p$genesdescrip, myscales = "fixed") +
       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
@@ -923,16 +923,16 @@ if(p$testdatatype=="quantitative"){
     print(tukplt)
     print(tukplt.log10)
     invisible(dev.off())
-    
+
     # --- Return
     antab[, label:=NULL] # get rid of label column
     return(list(antab = antab, tukres = tukres, ns = ns))
   }) # end lapply over rows of multiwaytests
-  
+
   # Save test results
   names(multwayout)<-multiwaytests$shortname
   ## Combine
-  ansave<-rbindlist(lapply(multwayout, function(x) x$antab)) 
+  ansave<-rbindlist(lapply(multwayout, function(x) x$antab))
   tuksave<-rbindlist(lapply(multwayout, function(x) x$tukres))
   nsave<-rbindlist(lapply(multwayout, function(x) x$ns))
   ## Write out
@@ -942,7 +942,7 @@ if(p$testdatatype=="quantitative"){
               sep = "\t", quote = F, row.names = F)
   write.table(nsave, file.path(p$outdir, paste0(p$baseoutname, "_multiwaytests_nspercategory.txt")),
               sep = "\t", quote = F, row.names = F)
-  
+
   # Summarize Tukey outs and save summaries (and/or just the significant comparisons?)
   ## Just Tukey results where ANOVA is (nominally) significant, Tukey padj is significant
   ansig<-ansave[pvalue < 0.05, ]
@@ -954,11 +954,11 @@ if(p$testdatatype=="quantitative"){
   ## Deeper level summary
   setkey(tuksave, strain, category, genes, cat1, cat2)
   tuksumm<-tuksave[,.(whichgreateravg = ifelse(mean(diff) < 0, cat2, cat1), nStrainsSigTuk = sum(tukey.padj<0.05),
-                              whichstrains = paste(strain[tukey.padj<0.05], collapse = ",")), 
+                              whichstrains = paste(strain[tukey.padj<0.05], collapse = ",")),
                            by = .(category, genes, cat1, cat2)] # within site class, how many strains sig contrast for each pair
   write.table(tuksumm, file.path(p$outdir, paste0(p$baseoutname, "_multiwaytests_TukeyHSDresults_countsigsummary.txt")),
               sep = "\t", quote = F, row.names = F)
-  
+
   cat("....quantitative data vs. ASE etc analyses complete....\n")
 } # end wrapping else if datatype is quantitative
 
@@ -967,9 +967,9 @@ if(p$testdatatype=="quantitative"){
 #### Analyses if data is CATEGORICAL ####
 if(p$testdatatype=="categorical"){
   cat("....Data is categorical (per user), doing categorical data vs. ASE etc analyses....\n")
-  
+
   alltests<-rbind(twowaytests, multiwaytests)
-  
+
   # --- Get n, proportion data for all
   # Get
   setkey(dat, strain)
@@ -977,7 +977,7 @@ if(p$testdatatype=="categorical"){
     dat[eval(parse(text = alltests[ind, mynarrow])),
         longformnsps(datin = .SD, catrowcol = alltests[ind, columnname], rowcats = names(eval(as.name(alltests[ind, colorvec]))),
                      catcol = "testDat", colcats = c(na.omit(dat[,unique(testDat)])),
-                     annotdt = data.table(testedCategory = alltests[ind, myname], 
+                     annotdt = data.table(testedCategory = alltests[ind, myname],
                                           genes = p$genesdescrip),
                      catrowcol.name = alltests[ind, shortname], catcol.name = p$testdatalabel),
         by = strain]
@@ -986,14 +986,14 @@ if(p$testdatatype=="categorical"){
   # Save
   write.table(allprops, file.path(p$outdir, paste0(p$baseoutname, "_alltests_longformproportions.txt")),
               sep = "\t", quote = F, row.names = F)
-  
+
   # --- Get chi-sq test results for ALL
   # Get
   chisqres<-rbindlist(lapply(1:nrow(alltests), function(ind){
     dat[eval(parse(text =  alltests[ind, mynarrow])),
         chisqfull(datin = .SD, catrowcol = alltests[ind, columnname], rowcats = names(eval(as.name(alltests[ind, colorvec]))),
                   catcol = "testDat", colcats =  c(na.omit(dat[,unique(testDat)])),
-                  annotdt = data.table(testedCategory = alltests[ind, myname], 
+                  annotdt = data.table(testedCategory = alltests[ind, myname],
                                        genes = p$genesdescrip),
                   colcats.names = paste(p$testcolumn, c(na.omit(dat[,unique(testDat)])), sep=".")),
         by = strain]
@@ -1001,14 +1001,14 @@ if(p$testdatatype=="categorical"){
   # Save
   write.table(chisqres, file.path(p$outdir, paste0(p$baseoutname, "_alltests_chisqtestresults_percategory.txt")),
               sep = "\t", quote = F, row.names = F)
-  
+
   # Summarize ??
   chisq.summ<-unique(chisqres[, .(strain, testedCategory, genes, ChiSq, Df, pvalue)])
   write.table(chisq.summ, file.path(p$outdir, paste0(p$baseoutname, "_alltests_chisqtestresults.txt")),
               sep = "\t", quote = F, row.names = F)
-  
+
   # --- Get binomial model test results for MULTI-WAY -> allows to pull out effects on individual category values [in theory]
-  # IF categorical data is T/F 
+  # IF categorical data is T/F
   if(is.logical(dat$testDat)){
     cat("---....test data is logical/binary; doing binomial glms....\n")
     # Get
@@ -1020,7 +1020,7 @@ if(p$testdatatype=="categorical"){
     ## Run
     allmodres<-lapply(1:nrow(multiwaytests), function(ind){
       bystrn<-lapply(strainswall, function(strn){
-        modtestbinom(datin = dat[eval(parse(text =  alltests[ind, mynarrow])) & strain==strn,], 
+        modtestbinom(datin = dat[eval(parse(text =  alltests[ind, mynarrow])) & strain==strn,],
                      catrowcol = multiwaytests[ind, columnname], rowcats.ref = eval(as.name(multiwaytests[ind, reflevelvec])),
                      catcol = "testDat", annotdt = data.table(strain = strn,
                                                               testedCategory = multiwaytests[ind, myname],
@@ -1032,13 +1032,13 @@ if(p$testdatatype=="categorical"){
     ## combine
     allmodinfo<-rbindlist(lapply(allmodres, function(x) rbindlist(lapply(x, function(strn) strn$modinfo))))
     allmodcoefs<-rbindlist(lapply(allmodres, function(x) rbindlist(lapply(x, function(strn) strn$allmodres))))
-    
+
     # Save
     write.table(allmodinfo, file.path(p$outdir, paste0(p$baseoutname, "_multiwaytests_binomialglms_info.txt")),
                 sep = "\t", quote = F, row.names = F)
     write.table(allmodcoefs, file.path(p$outdir, paste0(p$baseoutname, "_multiwaytests_binomialglms_allcoefs.txt")),
                 sep = "\t", quote = F, row.names = F)
-    
+
     # Summarize
     ## Save all significant betas where overall chi-sq result is significant
     chisig<-chisq.summ[pvalue<0.05, ]
@@ -1049,19 +1049,19 @@ if(p$testdatatype=="categorical"){
     ## Counts summaries
     setkey(allmodcoefs, strain, testedCategory, genes, reference.category, tested.category)
     coefsumm<-allmodcoefs[, .(whichgreateravg = ifelse(mean(beta.estimate) < 0, reference.category, tested.category), nStrainsSigCoef = sum(p.bonf<0.05),
-                              whichstrains = paste(strain[p.bonf<0.05], collapse = ",")), 
+                              whichstrains = paste(strain[p.bonf<0.05], collapse = ",")),
                           by = .(testedCategory, genes, reference.category, tested.category)] # within category, how many strains sig contrast for eac
-    write.table(coefsumm[order(nStrainsSigCoef, decreasing = T)], 
+    write.table(coefsumm[order(nStrainsSigCoef, decreasing = T)],
                 file.path(p$outdir, paste0(p$baseoutname, "_multiwaytests_binomialglms_coefs_countsigsummary.txt")),
                 sep = "\t", quote = F, row.names = F)
-    
+
   }else{
     cat("---....test data IS NOT logical/binary; NOT doing binomial glms....\n")
   } # end if is.logical(testdat)
-  
-  # --- Barplots: LOTS. 
+
+  # --- Barplots: LOTS.
   cat("--....Plotting barplots of genes in test data categories that are various other categories....\n")
-  # Set up directory 
+  # Set up directory
   barpltdir<-file.path(p$outdir, "barplots")
   if(!dir.exists(barpltdir)){dir.create(barpltdir)}
   # Update colors to look OK with bars
@@ -1070,17 +1070,17 @@ if(p$testdatatype=="categorical"){
   # Test data colors
   testdatcols<-colorRampPalette(c("gray", "black"))(length(allprops[, na.omit(unique(category2))]))
   names(testdatcols)<-rev(allprops[, na.omit(unique(category2))])
-  
+
   # label dt (chi-sq)
   chisq.summ[, label:=paste("ChiSq p =", ifelse(pvalue < 0.001, paste(formattable::scientific(pvalue, digits = 1)),
                                                 round(pvalue, digits = 3)))]
-  
+
   # Make all plots
   invisible(lapply(1:nrow(alltests), function(ind){
     thisdat<-allprops[testedCategory==alltests[ind, myname], ]
     thisdat[,strain:=factor(strain, levels = strainswall)]
     thislab<-chisq.summ[testedCategory==alltests[ind, myname], ]
-    
+
     # Bar plots with testDat on x axis, segmented into other category
     pdf(file.path(barpltdir, paste0(p$baseoutname, "_barplots_", alltests[ind, shortname], "_testdatax.pdf")),
         max(8, 1.75*length(strainswall)), max(4, 1.6*length(strainswall)))
@@ -1090,7 +1090,7 @@ if(p$testdatatype=="categorical"){
                  mycolors = eval(as.name(alltests[ind, colorvec])),
                  xcol = "category2", stackcol = "category1", stacknumcol = "prop.thiscateg2",
                  xorder = thisdat[,na.omit(unique(category2))], legendlabel = alltests[ind, shortname],
-                 myxlab = p$testdatalabel, myylab = "Proportion of genes in x axis category", 
+                 myxlab = p$testdatalabel, myylab = "Proportion of genes in x axis category",
                  mytitle = alltests[ind, myname], mysubt = p$genesdescrip) +
         facet_wrap(~strain) +
         theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
@@ -1102,7 +1102,7 @@ if(p$testdatatype=="categorical"){
                  mycolors = eval(as.name(alltests[ind, colorvec])),
                  xcol = "category2", stackcol = "category1", stacknumcol = "prop.total",
                  xorder = thisdat[,na.omit(unique(category2))], legendlabel = alltests[ind, shortname],
-                 myxlab = p$testdatalabel, myylab = "Proportion of all genes (analyzed in this set)", 
+                 myxlab = p$testdatalabel, myylab = "Proportion of all genes (analyzed in this set)",
                  mytitle = alltests[ind, myname], mysubt = p$genesdescrip) +
         facet_wrap(~strain) +
         theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
@@ -1113,12 +1113,12 @@ if(p$testdatatype=="categorical"){
                  mycolors = eval(as.name(alltests[ind, colorvec])),
                  xcol = "category2", stackcol = "category1", stacknumcol = "n.thiscombo",
                  xorder = thisdat[,na.omit(unique(category2))], legendlabel = alltests[ind, shortname],
-                 myxlab = p$testdatalabel, myylab = "Number genes", 
+                 myxlab = p$testdatalabel, myylab = "Number genes",
                  mytitle = alltests[ind, myname], mysubt = p$genesdescrip) +
         facet_wrap(~strain) +
         theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
     )
-    
+
     invisible(dev.off())
 
     # Bar plots with other category on x axis, segmented into testDat
@@ -1127,10 +1127,10 @@ if(p$testdatatype=="categorical"){
     ## Proportion within testDat category: this one has chi-sq label
     print(
       stackedbar(pinhclass = thisdat,
-                 mycolors = testdatcols, 
+                 mycolors = testdatcols,
                  xcol = "category1", stackcol = "category2", stacknumcol = "prop.thiscateg1",
                  xorder = names(eval(as.name(alltests[ind, colorvec]))), legendlabel = "test data",
-                 myxlab = alltests[ind, myname], myylab = "Proportion of genes in x axis category", 
+                 myxlab = alltests[ind, myname], myylab = "Proportion of genes in x axis category",
                  mytitle = alltests[ind, myname], mysubt = p$genesdescrip) +
         facet_wrap(~strain) +
         theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
@@ -1139,10 +1139,10 @@ if(p$testdatatype=="categorical"){
     ## Global proportions
     print(
       stackedbar(pinhclass = thisdat,
-                 mycolors = testdatcols, 
+                 mycolors = testdatcols,
                  xcol = "category1", stackcol = "category2", stacknumcol = "prop.total",
                  xorder = names(eval(as.name(alltests[ind, colorvec]))), legendlabel = "test data",
-                 myxlab = alltests[ind, myname], myylab = "Proportion of all genes (analyzed in this set)", 
+                 myxlab = alltests[ind, myname], myylab = "Proportion of all genes (analyzed in this set)",
                  mytitle = alltests[ind, myname], mysubt = p$genesdescrip) +
         facet_wrap(~strain) +
         theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
@@ -1150,18 +1150,18 @@ if(p$testdatatype=="categorical"){
     ## Numbers
     print(
       stackedbar(pinhclass = thisdat,
-                 mycolors = testdatcols, 
+                 mycolors = testdatcols,
                  xcol = "category1", stackcol = "category2", stacknumcol = "n.thiscombo",
                  xorder = names(eval(as.name(alltests[ind, colorvec]))), legendlabel = "test data",
-                 myxlab = alltests[ind, myname], myylab = "Number genes", 
+                 myxlab = alltests[ind, myname], myylab = "Number genes",
                  mytitle = alltests[ind, myname], mysubt = p$genesdescrip) +
         facet_wrap(~strain) +
         theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
     )
     invisible(dev.off())
-    
+
   }))
-  
+
   # --- Plot proportion vs. divergence
   cat("--....Plotting proportion of genes in test data categories that are various other categories vs. divergence from N2....\n")
   # Set up directory
@@ -1169,53 +1169,53 @@ if(p$testdatatype=="categorical"){
   if(!dir.exists(divdir)){dir.create(divdir)}
   # Set up # variants
   ndiv<-straininfo[, .(strain, nvars)]
-  ndiv[,`:=`(nvars.thou = nvars/1e03, nvars.perkb = nvars/(p$genomebp/1e03))] 
+  ndiv[,`:=`(nvars.thou = nvars/1e03, nvars.perkb = nvars/(p$genomebp/1e03))]
   setkey(ndiv, strain)
-  
+
   invisible(lapply(1:nrow(alltests), function(ind){
     # Data set up. *** exclude 'all' metastrain!!
     pdat<-allprops[testedCategory==alltests[ind, myname] & strain!="all",
-                   .(strain, testedCategory, categ1name, category1, categ2name, 
+                   .(strain, testedCategory, categ1name, category1, categ2name,
                      category2, n.thiscombo, prop.thiscateg1, prop.thiscateg2,
                      low95ci.thiscateg2, high95ci.thiscateg2, low95ci.thiscateg1, high95ci.thiscateg1)]
     setkey(pdat, strain)
     pdat<-pdat[ndiv]
     pdat[,strain:=factor(strain, levels = ndiv[order(nvars.thou), strain])]
     pdat[, category1:=factor(category1, levels=names(eval(as.name(alltests[ind, colorvec]))))]
-    
+
     # Label set up - include short title for non-testdata
     mylabs<-paste(alltests[ind, shortname], pdat[, unique(category1)], sep = ":\n")
     names(mylabs)<- pdat[, unique(category1)]
     testlabs<-pdat[,unique(category2)]
     names(testlabs)<-pdat[,unique(category2)]
-    
+
     pdf(file.path(divdir, paste0(p$baseoutname, "_propintestvsdivergencefromN2_", alltests[ind, shortname], ".pdf")),
         7.5, max(6, length(eval(as.name(alltests[ind, colorvec]))) * 1.5))
     # MAKE PLOT: Proportion of testDat categories that are each other category
     print(
       divplot(onedat = pdat, xcol = "nvars.perkb", ycol = "prop.thiscateg2",
               xlabel = "SNVs/INDELs vs. N2, per kb",
-              ylabel = "Proportion of genes in given test data/column facet\nthat are the row facet's category", 
+              ylabel = "Proportion of genes in given test data/column facet\nthat are the row facet's category",
               mytitle = paste(alltests[ind, myname], "- proportion of genes testDat category that are each this category"),
-              mysubt = p$genesdescrip, ymincol = "low95ci.thiscateg2", ymaxcol = "high95ci.thiscateg2") + 
+              mysubt = p$genesdescrip, ymincol = "low95ci.thiscateg2", ymaxcol = "high95ci.thiscateg2") +
         facet_grid(category1~category2, scales = "free_y", labeller = labeller(category1 = as_labeller(mylabs),
                                                                                category2 = as_labeller(testlabs)))
     )
-    
+
     # MAKE PLOT: proportion of ASE-relevant categories that are each testDat category
     print(
       divplot(onedat = pdat, xcol = "nvars.perkb", ycol = "prop.thiscateg1",
               xlabel = "SNVs/INDELs vs. N2, per kb",
-              ylabel = "Proportion of genes in given row facett\nthat are the test data (column) facet's category", 
+              ylabel = "Proportion of genes in given row facett\nthat are the test data (column) facet's category",
               mytitle = paste(alltests[ind, myname], "- proportion of genes testDat category that are each this category"),
-              mysubt = p$genesdescrip, ymincol = "low95ci.thiscateg1", ymaxcol = "high95ci.thiscateg1") + 
+              mysubt = p$genesdescrip, ymincol = "low95ci.thiscateg1", ymaxcol = "high95ci.thiscateg1") +
         facet_grid(category1~category2, scales = "free_y", labeller = labeller(category1 = as_labeller(mylabs),
                                                                                category2 = as_labeller(testlabs)))
     )
-    
+
     invisible(dev.off())
   }))
-  
+
   cat("....categorical data vs. ASE etc analyses complete....\n")
 } # end wrapping else if datatype is categorical
 
@@ -1225,4 +1225,3 @@ if(p$testdatatype=="categorical"){
 #### Script completion message & session information ####
 cat(".....aseetc_vs_general.R processing complete! Session information:....\n")
 sessionInfo()
-

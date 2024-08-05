@@ -17,7 +17,7 @@ params.libtype = 'SE' // SE or PE - is libary single end or paired end? So proce
 params.plotinfo = "" // Path to tab-delimited file containing plotting-related sample information, passed to eqclassalnmtsummary_multsamples.R. Must include columns SampleID (sample ID as everywhere else), those passed to --groupby, --splitby, --facetby (or subsets of those used)
 
 // Inputs: Tunable parameters for trimming
-params.trimmodir = "/storage/coda1/p-apaaby3/0/shared/software/trimmomatic-0.39" // Path to trimmomatic v0.39 directory containing jar file and adapters directory (which itself contains the fasta files provided in next option, e.g. TruSeq3-SE.fa).
+params.trimmodir = "" // Path to trimmomatic v0.39 directory containing jar file and adapters directory (which itself contains the fasta files provided in next option, e.g. TruSeq3-SE.fa).
 params.trimmofa = "TruSeq3-SE.fa" // name of fasta file within trimmodir adapters/ directory matching those used in library preparation
 params.trimmoseedmism = 1 // Input to trimmomatic ILLUMINACLIP. How many of 16 bp can mismatch and still be counted as match.
 params.trimmoadapclipthresh = 12 // Input to trimmomatic ILLUMINACLIP. How accurate match between adapter sequence and read must be. Each correct base adds 0.6. They recommend 7-15 (12 bases needed for 7, 25 for 15).
@@ -37,9 +37,9 @@ params.facetby = "" // --facetby input of eqclassalnmtsummary_multsamples.R. Col
 params.genelists = "" // --genelists input of eqclassalnmtsummary_multsamples.R. (# samples with unique alignments : # unique alignments per sample; can comma-separate to get more than 1 gene list per sample group. Sample grouping done based on by groupby, splitby, facetby inputs to this script)
 
 // Inputs: organizational
-params.alntoolsenv = '/storage/home/hcoda1/2/abell65/.conda/envs/alntools' // Path to alntools conda environment is installed in Anaconda3/2020.02 module
-params.salmonenv = '/storage/home/hcoda1/2/abell65/.conda/envs/salmon' // path to conda environment where salmon is installed
-params.asescriptsdir = '/storage/coda1/p-apaaby3/0/shared/labmembers/abell65/scripts/rnaseq/ase' // path to directory containing salmonalleleeqclasses.py and eqclassalnmtsummary_multsamples.R scripts
+params.alntoolsenv = '' // Path to alntools conda environment is installed in Anaconda3/2020.02 module
+params.salmonenv = '' // path to conda environment where salmon is installed
+params.asescriptsdir = '' // path to directory containing salmonalleleeqclasses.py and eqclassalnmtsummary_multsamples.R scripts
 
 // Housekeeping:  create output directories
 // Alignment & related info

@@ -1,7 +1,7 @@
 #! /usr/bin/env/ Rscript
 # Allele-specific expression analysis + comparison to parental samples, annotated with various other experimental information about the genes
 #   including number of unique alignments in underlying Salmon; whether gene is in CeNDR called hyperdivergent haplotype; etc
-#    using DESeq2 to generate log2 fold changes, p-values, etc from EMASE output 
+#    using DESeq2 to generate log2 fold changes, p-values, etc from EMASE output
 # Strains are included in same model/input data, but results are within-strain and included separately
 # by Avery Davis Bell, begun 2021.02.28
 
@@ -26,10 +26,10 @@ sessionInfo() #### tmp print for troubleshooting
 
 #### Functions ####
 getlocusmetadata<-function(gff3file, chrexcl = c(NA), biotypes = c("protein_coding")){
-  # Gets locus or coding sequence name, location, strand for all genes, narrowing to those on desired chromosomes 
+  # Gets locus or coding sequence name, location, strand for all genes, narrowing to those on desired chromosomes
   #     and with desired biotypes based on inputs
   # In: gff3file, path to *genes only* gff3 file containing info on all genes
-  #     chrexcl, vector of chromosomes to exclude (or vector of NA) - matching however they're included in 
+  #     chrexcl, vector of chromosomes to exclude (or vector of NA) - matching however they're included in
   # Out: data.table of gene information from gff. Columns:
   #   gene_id, gene ID, from Name field of gff. e.g. wormbase ID
   #   display_name, nicer-format display name to use. This is the 'locus' name if one exists, otherwise the sequence_name
@@ -40,14 +40,14 @@ getlocusmetadata<-function(gff3file, chrexcl = c(NA), biotypes = c("protein_codi
   #   start, start position
   #   end, end position
   #   strand, coding strand
-  
+
   # Subfunctions
   formatgff<-function(gff, namesget = c("Name", "locus", "sequence_name", "biotype")){ # originally written in formatgff3_vits_20200803.R
     # Formats GFF3 to have useful columns only; only one column per gene
     # Input: data.table, no column names, of GFF information. *Needs to be pre-Tested for each entry to be GENE ONLY*
     #         namesget, vector of names of information to get from last column of GFF
     # Output: data.table with columns namesget, chr, start, end, strand. Keyed by gene_id.
-    
+
     # subfunctions
     procinfo<-function(oneinfo, namesget){
       # Breaks down last column of GFF. In: one string of this information.
@@ -59,17 +59,17 @@ getlocusmetadata<-function(gff3file, chrexcl = c(NA), biotypes = c("protein_codi
       setnames(out, namesget)
       return(out)
     }
-    
+
     setnames(gff, c("chr", "source", "type", "start", "end", "exclude1", "strand", "exclude2", "info"))
     gff<-data.table(gff, gff[, procinfo(oneinfo = info, namesget = namesget),by = 1:nrow(gff)])
     return(gff[,c(namesget, "chr", "start", "end", "strand"), with = F])
   }
-  
+
   gffinfo<-formatgff(fread(gff3file, skip = 8, header=F))[!chr%in%chrexcl & biotype%in%biotypes, ]
   gffinfo[,display_name:=ifelse(is.na(locus), sequence_name, locus)]
   setnames(gffinfo, "Name", "gene_id")
   setcolorder(gffinfo, c("gene_id", "display_name"))
-  
+
   setkey(gffinfo, gene_id)
   return(gffinfo)
 }
@@ -78,13 +78,13 @@ fread.emase<-function(emfile){
   # Reads & properly column names emase output files where the first line is header but starts with comment character and the second line starts with comment character
   # In: emfile, path to emase-zero output file to read
   # Out: data.table of emase-zero output with column names as in that file
-  
+
   # Get names
   cnames<-strsplit(readLines(emfile, n = 1), "\t")[[1]]
   if(startsWith(cnames[1], "#")){
     cnames[1] <- substr(cnames[1], 2, nchar(cnames[1]))
   }
-  
+
   # Get data
   dt<-fread(emfile, skip = 2, header = F, col.names = cnames)
   return(dt)
@@ -94,8 +94,8 @@ totctmatrix_emasedir<-function(sampinfo, emasedir){
   # Reads in emase count matrix 'total' column - one column per sample.
   # In: sampinfo, data.table with sample information. Only required column is SampleID *in same format as in exampfile*.
   #     emasedir, Path to directory with one EMASE output .gene.counts (or .gene.counts.gz) per sample. Filenames must start with sample ID (from sampinfo)
-  # Out: matrix of genes (rows, row names) x samples. Columns are named SampleID. Values are from 'total' column of emase input  
-  
+  # Out: matrix of genes (rows, row names) x samples. Columns are named SampleID. Values are from 'total' column of emase input
+
   # Read in
   emfiles<-list.files(emasedir)
   samp.emase<-lapply(sampinfo$SampleID, function(x){
@@ -106,12 +106,12 @@ totctmatrix_emasedir<-function(sampinfo, emasedir){
     return(em[,.(target_id, total)])
   })
   print("read all")
-  
+
   # Combine
   ctmat<-as.matrix(do.call(cbind, lapply(samp.emase, function(x) x[,total])))
   row.names(ctmat)<-samp.emase[[1]][,target_id]
   colnames(ctmat)<-sampinfo$SampleID
-  
+
   # Return
   return(ctmat)
 }
@@ -121,12 +121,12 @@ alctmatrix_emasedir<-function(sampinfo, emasedir){
   # In: sampinfo, data.table with sample information. Only required column is SampleID *in same format as in exampfile*. Order of samples here will be their order in output!
   #         Other optional columns will be included in sample info output!
   #     emasedir, Path to directory with one EMASE output .gene.counts (or .gene.counts.gz) per sample. Filenames must start with sample ID (from sampinfo)
-  # Out: list. 
+  # Out: list.
   #     $cts, matrix of genes (rows, row names) x sample/allele pairs. Two columns per sample (allele 1, allele 2). Named SampleID_<name of allele from EMASE>
   #     $samps, data.table of samples. Two rows for each input sample, in same order as $cts. Row names are same as column names of $cts
   #       SampleID and all other information from sampinfo are included
   #       critically, an Allele column is added: which allele (from emase) does row describe. For use in model to get ASE estimates.
-  
+
   # Read in all samples' emase counts; re-naming columns to reflect sample ID
   emfiles<-list.files(emasedir)
   samp.emase<-lapply(sampinfo$SampleID, function(x){
@@ -136,11 +136,11 @@ alctmatrix_emasedir<-function(sampinfo, emasedir){
     setnames(em, names(em)[2:3], paste(x, names(em)[2:3], sep = "_"))
     return(em[,.SD,.SDcols = -4]) # don't keep total column!
   })
-  
+
   # Combine
   ctmat<-as.matrix(do.call(cbind, lapply(samp.emase, function(x) x[,.SD,.SDcols=-1])))
   row.names(ctmat)<-samp.emase[[1]][,target_id]
-  
+
   # Sample info: 2 entries per sample (1 per allele)
   samps<-copy(sampinfo)
   samps<-rbind(samps, samps)
@@ -149,8 +149,8 @@ alctmatrix_emasedir<-function(sampinfo, emasedir){
   row.names(samps)<-colnames(ctmat)
   ## Add Allele column: this is Strain of the specific allele counted in the given column
   myals<-sapply(strsplit(row.names(samps), "_"), function(x) x[length(x)]) ## need to take end - if other underscores in sample name, hard coding to take x[2] doesn't work##
-  samps[, Allele:=myals] 
-  
+  samps[, Allele:=myals]
+
   # Return
   return(list(cts = ctmat, samps = samps))
 }
@@ -158,7 +158,7 @@ alctmatrix_emasedir<-function(sampinfo, emasedir){
 getaseres<-function(dds, resn, alpha = 0.1, skewthresh = 0.6, desuff = ""){
   # Extracts result of interest from dds, gets in terms of allele proportion. Assumes result of interest is allele effect vs. ref (optionally in a given condition)
   # log2 fold changes shrunken with ashr!
-  # In: dds, DESeq2 object that includes results to extract from. 
+  # In: dds, DESeq2 object that includes results to extract from.
   #     resn, name of result to get
   #     alpha, p-value threshold
   #     skewthresh, proportion alleles from one haplotype OR the other for results to be considered significant (signifAtThresholds output column). I.e., if 0.6, genes with <=0.4 or >=0.6 alt alleles are considered significant
@@ -169,22 +169,22 @@ getaseres<-function(dds, resn, alpha = 0.1, skewthresh = 0.6, desuff = ""){
   #       altVref - proportion of ref allele that alt allele is (calculated from log2FC)
   #       altVtotal - proportion of total that alt allele is (calculated from log2FC)
   #       signifAtThresholds.<desuff>,  T or F: is this gene significant at the alpha and allele skew thresholds provided
-  
+
   res<-results(dds, name = resn, alpha = alpha)
-  res<-as.data.table(lfcShrink(dds, res = res, type = 'ashr', 
+  res<-as.data.table(lfcShrink(dds, res = res, type = 'ashr',
                                lfcThreshold = log2(-1*skewthresh/(skewthresh-1))), keep.rownames = T)
   res[, altVref:=2^log2FoldChange] # prop of ref that alt is
   res[, altVtotal:=altVref/(1 + altVref)] # prop of total alleles that alt is
-  
+
   # Annotate with overlap with thresholds
   skthrs<-sort(c(skewthresh, 1 - skewthresh))
   res[, signifAtThresholds:=ifelse(!is.na(padj) & padj<alpha & (altVtotal<=skthrs[1] | altVtotal>=skthrs[2]), T, F)]
-  
+
   # Name columns appropriately
   setnames(res, "rn", "gene_id")
   setnames(res, c("baseMean", "log2FoldChange", "lfcSE", "pvalue", "padj", "signifAtThresholds"),
            paste0(c("baseMean", "log2FoldChange", "lfcSE", "pvalue", "padj", "signifAtThresholds"), desuff))
-  
+
   setkey(res, "gene_id")
   return(res)
 }
@@ -199,38 +199,38 @@ plotPCA_givePCs_colshape<-function (object, colgroup = "Strain", shapegroup = "T
   #   xpc: integer. Which PC to plot on X axis.
   #   ypc: integer. Which PC to plot on Y axis
   #   mytitle: character. Title for plot.
-  
+
   xpcname<-paste0("PC", xpc)
   ypcname<-paste0("PC", ypc)
   rv <- rowVars(assay(object), useNames = T)
-  select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, 
+  select <- order(rv, decreasing = TRUE)[seq_len(min(ntop,
                                                      length(rv)))]
   pca <- prcomp(t(assay(object)[select, ]))
   percentVar <- pca$sdev^2/sum(pca$sdev^2)
   if (!all(c(colgroup, shapegroup) %in% names(colData(object)))) {
     stop("the argument colgroup and shapegroup should specify columns of colData(dds)")
   }
-  intgroup.df <- as.data.frame(colData(object)[, c(colgroup, shapegroup), 
+  intgroup.df <- as.data.frame(colData(object)[, c(colgroup, shapegroup),
                                                drop = FALSE])
-  
-  d <- data.frame(xpcname = pca$x[, xpc], ypcname = pca$x[, ypc], 
+
+  d <- data.frame(xpcname = pca$x[, xpc], ypcname = pca$x[, ypc],
                   intgroup.df, name = colnames(object))
   if (returnData) {
     attr(d, "percentVar") <- percentVar[xpc:ypc]
     return(d)
   }
-  plt<- ggplot(data = d, aes_string(x = "xpcname", y = "ypcname", color = colgroup, shape = shapegroup)) + 
-    geom_point(size = 3) + 
-    xlab(paste0(xpcname, ": ", round(percentVar[xpc] * 100), "% variance")) + 
-    ylab(paste0(ypcname, ": ", round(percentVar[ypc] * 100), "% variance")) + 
-    coord_fixed() + 
-    ggtitle(mytitle) + 
-    theme(plot.title = element_text(hjust = 0.5), axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14), 
+  plt<- ggplot(data = d, aes_string(x = "xpcname", y = "ypcname", color = colgroup, shape = shapegroup)) +
+    geom_point(size = 3) +
+    xlab(paste0(xpcname, ": ", round(percentVar[xpc] * 100), "% variance")) +
+    ylab(paste0(ypcname, ": ", round(percentVar[ypc] * 100), "% variance")) +
+    coord_fixed() +
+    ggtitle(mytitle) +
+    theme(plot.title = element_text(hjust = 0.5), axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14),
           axis.title.y = element_text(size = 15), axis.text.y = element_text(size = 14),
           title = element_text(size = 17), legend.text = element_text(size = 13),
           plot.subtitle = element_text(size = 15), strip.text.x = element_text(size = 15))
-  
-  
+
+
   return(plt)
 }
 
@@ -246,34 +246,34 @@ plotPCA_givePCs_colshapesz<-function (object, colgroup = "Strain", shapegroup = 
   #   xpc: integer. Which PC to plot on X axis.
   #   ypc: integer. Which PC to plot on Y axis
   #   mytitle: character. Title for plot.
-  
+
   xpcname<-paste0("PC", xpc)
   ypcname<-paste0("PC", ypc)
   rv <- rowVars(assay(object), useNames = T)
-  select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, 
+  select <- order(rv, decreasing = TRUE)[seq_len(min(ntop,
                                                      length(rv)))]
   pca <- prcomp(t(assay(object)[select, ]))
   percentVar <- pca$sdev^2/sum(pca$sdev^2)
   if (!all(c(colgroup, shapegroup) %in% names(colData(object)))) {
     stop("the argument colgroup and shapegroup should specify columns of colData(dds)")
   }
-  intgroup.df <- as.data.frame(colData(object)[, c(colgroup, shapegroup, sizeby), 
+  intgroup.df <- as.data.frame(colData(object)[, c(colgroup, shapegroup, sizeby),
                                                drop = FALSE])
-  
-  d <- data.frame(xpcname = pca$x[, xpc], ypcname = pca$x[, ypc], 
+
+  d <- data.frame(xpcname = pca$x[, xpc], ypcname = pca$x[, ypc],
                   intgroup.df, name = colnames(object))
-  
+
   # x'ing point related
   d[,sizeby]<-relevel(d[,sizeby], ref = sizeptval)
-    
-  plt<-ggplot(data = d, aes_string(x = "xpcname", y = "ypcname", color = colgroup, shape = shapegroup, size = sizeby)) + 
-    geom_point(alpha = 0.6) + 
-    xlab(paste0(xpcname, ": ", round(percentVar[xpc] * 100), "% variance")) + 
-    ylab(paste0(ypcname, ": ", round(percentVar[ypc] * 100), "% variance")) + 
+
+  plt<-ggplot(data = d, aes_string(x = "xpcname", y = "ypcname", color = colgroup, shape = shapegroup, size = sizeby)) +
+    geom_point(alpha = 0.6) +
+    xlab(paste0(xpcname, ": ", round(percentVar[xpc] * 100), "% variance")) +
+    ylab(paste0(ypcname, ": ", round(percentVar[ypc] * 100), "% variance")) +
     labs(size = sizeby) +
-    coord_fixed() + 
-    ggtitle(mytitle) + 
-    theme(plot.title = element_text(hjust = 0.5), axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14), 
+    coord_fixed() +
+    ggtitle(mytitle) +
+    theme(plot.title = element_text(hjust = 0.5), axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14),
           axis.title.y = element_text(size = 15), axis.text.y = element_text(size = 14),
           title = element_text(size = 17), legend.text = element_text(size = 13),
           plot.subtitle = element_text(size = 15), strip.text.x = element_text(size = 15))
@@ -297,10 +297,10 @@ getgenstrainres<-function(dds, strn, comp = "N2", alpha = 0.1, lfcthresh = 0.584
   #                                                 first is <name>.ParentVsParent<comp> - results for Given strain (parent) vs. reference strain (comp)
   #                                                 second is <name>.F1VsParent<comp> - results for  Given strain F1 hybrid with reference vs. reference parental strain (comp)
   #                                                 third is <name>.F1VsParentNonRef - results for Given strain F1 hybrid with reference vs. non-reference parental strain (strn)
-  #       Columns with these suffixes: log2FoldChange, lfcSE, pvalue, padj (all from DESeq2); signifAtThresholds (T or F - padj passes alpha threshold and log2FoldChange passes lfcthresh)                                              
-  
+  #       Columns with these suffixes: log2FoldChange, lfcSE, pvalue, padj (all from DESeq2); signifAtThresholds (T or F - padj passes alpha threshold and log2FoldChange passes lfcthresh)
+
   # Subfunctions
-  formatgenstrnres<-function(dds, res, desuff = "", alpha = 0.1, lfcthresh = 0.5849625, 
+  formatgenstrnres<-function(dds, res, desuff = "", alpha = 0.1, lfcthresh = 0.5849625,
                              exclcols = NA){
     # ASHR-shrinks results; Names columns of res as what they are plus desuff; adds column signifAtThresholds (T if alpha, lfcthresh passed)
     # In: dds, DESeq object these results came from
@@ -311,22 +311,22 @@ getgenstrainres<-function(dds, strn, comp = "N2", alpha = 0.1, lfcthresh = 0.584
     #     exclcols, name of column to exclude from output, or NA to keep all
     # Out: data.table of results, but with new column signifAtThresholds<desuff> and with all other columns having desuff appended
     #     log2FCs are ASHR-shrunken; currently not keeping gene_ids
-    
+
     # Format results
     res<-as.data.table(lfcShrink(dds, res = res, type = 'ashr', lfcThreshold = lfcthresh))
     if(!(is.na(exclcols))){
       res<-res[,(exclcols):=NULL]
     }
-    res[,signifAtThresholds:=ifelse(!is.na(padj) & padj<alpha & 
+    res[,signifAtThresholds:=ifelse(!is.na(padj) & padj<alpha &
                                       (log2FoldChange > abs(lfcthresh) | log2FoldChange < -1*abs(lfcthresh)), T, F)]
-    
+
     # Update names
     setnames(res, names(res), paste0(names(res), desuff))
-    
+
     # Return
     return(res)
   }
-  
+
   # Get all results & shared metadata
   out<-data.table(gene_id = rownames(dds), # same for all results
                   baseMean.GenerationStrain = mcols(dds)$baseMean, # same for all results
@@ -334,37 +334,37 @@ getgenstrainres<-function(dds, strn, comp = "N2", alpha = 0.1, lfcthresh = 0.584
                     formatgenstrnres(dds = dds,
                                      res = results(dds, contrast = c("GenerationStrain", paste0("Parent.", strn), paste0("Parent.", comp)), alpha = alpha, lfcThreshold = lfcthresh),
                                      desuff = paste0(".ParentVsParent", comp),
-                                     alpha = alpha, 
-                                     lfcthresh = lfcthresh, 
+                                     alpha = alpha,
+                                     lfcthresh = lfcthresh,
                                      exclcols = "baseMean"),
                     formatgenstrnres(dds = dds,
                                      res = results(dds, contrast = c("GenerationStrain", paste0("F1.", strn), paste0("Parent.", comp)), alpha = alpha,  lfcThreshold = lfcthresh),
                                      desuff = paste0(".F1VsParent", comp),
-                                     alpha = alpha, 
-                                     lfcthresh = lfcthresh, 
+                                     alpha = alpha,
+                                     lfcthresh = lfcthresh,
                                      exclcols = "baseMean"),
                     formatgenstrnres(dds = dds,
                                      res = results(dds, contrast = c("GenerationStrain", paste0("F1.", strn), paste0("Parent.", strn)), alpha = alpha,  lfcThreshold = lfcthresh),
                                      desuff = ".F1VsParentNonRef",
-                                     alpha = alpha, 
-                                     lfcthresh = lfcthresh, 
+                                     alpha = alpha,
+                                     lfcthresh = lfcthresh,
                                      exclcols = "baseMean")
                   )))
-  
+
   # Key by gene_id & return
   setkey(out, gene_id)
   return(out)
 }
 
 freadeqctshapgene<-function(sampids, geneids, exampuniqeqcts){
-  # Reads in the number of haplotype and gene specific alignments for the given samples, genes 
+  # Reads in the number of haplotype and gene specific alignments for the given samples, genes
   # In: sampids, sample IDs to read files for. These will be used as column names in the output and *must* be in exampuniqeqcts file paths
   #     geneids, gene IDs to retain records for.
   #     exampuniqeqcts, Example filepath to per-sample counts of eq classes, haplotype-specific eq classes, gene-specific eq classes for each _gene_ (*eqclasses_genes.txt.gz output of salmonalleleeqclasses.py).
   #                   Where sample ID (as in --sampleinfo) goes in filename, should have string SAMP.
   #                   For any other differences among filenames (e.g. genome aligned to), include the glob '*' asterisk character
   # Out: data.table with one row per gene in geneids. Columns gene_id, one for each in sampids. Keyed by gene_id.
-  
+
   out.l<-lapply(sampids, function(x){
     eqgenef<-Sys.glob(gsub("SAMP", x, exampuniqeqcts))
     onesamp<-fread(eqgenef, select = c("gene_id", "naln_hapgenespec"))[gene_id%in%geneids]
@@ -404,15 +404,15 @@ prochypdivbed<-function(divregbed, geneinfo, isotypes){
   # Out: data.table with columns:
   #      gene_id, gene_id from geneinfo. KEYED BY THIS.
   #     one column per isotype, named <isotype from isotypes vector>.div containing T or F for if that gene overlaps hyperdivergent region
-  
+
   # Read in divergent regions, keep only isotypes of interest
   divs<-fread(divregbed, header = F)
   setnames(divs, c("chr", "start", "end", "iso"))
   divs<-divs[iso%in%isotypes, ]
   setkey(divs, chr, start, end)
-  
+
   # Determine divergent yes/no for each gene/strain pair
-  ginfo<-copy(geneinfo) # don't want to modify input DT 
+  ginfo<-copy(geneinfo) # don't want to modify input DT
   setkey(ginfo, chr, start, end)
   gdiv<-data.table(ginfo[, gene_id],
                    (do.call(cbind, lapply(isotypes, function(x){
@@ -422,7 +422,7 @@ prochypdivbed<-function(divregbed, geneinfo, isotypes){
                    })))
   )
   setnames(gdiv, c("gene_id", paste(isotypes, "div", sep = ".")))
-  
+
   # Return
   setkey(gdiv, gene_id)
   return(gdiv)
@@ -432,8 +432,8 @@ prochypdivbed<-function(divregbed, geneinfo, isotypes){
 # --- Command line arguments
 p<-arg_parser("Allele-specific expression analysis + comparison to parental samples, annotated with various other experimental information about the genes
         including number of unique alignments in underlying Salmon; whether gene is in CeNDR called hyperdivergent haplotype; etc
-        using DESeq2 to generate log2 fold changes, p-values, etc from EMASE output 
-        Strains are included in same model/input data, but results are within-strain and included separately", 
+        using DESeq2 to generate log2 fold changes, p-values, etc from EMASE output
+        Strains are included in same model/input data, but results are within-strain and included separately",
               name = "ase_de_annotategenes_deseq2_fromemaseout.R ", hide.opts = TRUE)
 
 # Organizational & data input arguments
@@ -454,7 +454,7 @@ p<-add_argument(p, "--emasedir",
                 help = "Path to directory with one EMASE output .gene.counts (or .gene.counts.gz) per sample. Filenames must start with sample ID (from sampinfof1, sampinfoparent)",
                 type = "character")
 p<-add_argument(p, "--allelerename",
-                help = "Optional - allele mapping/renaming between files. Path to file with columns emase, sample: initial should be alleles as in EMASE outputs; final should be alleles as in sample information!", 
+                help = "Optional - allele mapping/renaming between files. Path to file with columns emase, sample: initial should be alleles as in EMASE outputs; final should be alleles as in sample information!",
                 default = NA)
 
 # Statistical testing-related arguments
@@ -463,14 +463,14 @@ p<-add_argument(p, "--aseotherterms",
                   design will be ~<this> + <this>:Sample[grouped as needed] + Allele",
                 default = NA,
                 type = "character")
-p<-add_argument(p, "--refcategoryinfo", 
+p<-add_argument(p, "--refcategoryinfo",
                 help = "Path to matrix describing the reference level for ALL factors in the ASE model, even if you don't care (Allele, other terms). Columns 'colname', 'reflevel'. reflevel for allele should be as in sample info, not emase.
                 **Important: ref level for Allele is assumed to be reference strain to be used as denominator for comparisons here and in generation/strain model",
                 type = "character")
 p<-add_argument(p, "--alpha",
                 help = "Alpha p-value threshold for FDR-like filtering (used for ASE and Generation/Strain group comparisons)",
                 type = "numeric",
-                default = 0.1)
+                default = 0.05)
 p<-add_argument(p, "--alleleskewthresh",
                 help = "proportion alleles from one haplotype OR the other for results to be considered significant. (used to threshold calls that can be significant within DESeq2).
                 I.e., if 0.6, genes with >=60% of one allele (<=40% or >=60% alt. alleles) AND significant p-values are considered significant.
@@ -478,7 +478,7 @@ p<-add_argument(p, "--alleleskewthresh",
                 type = "numeric",
                 default = 0.5)
 p<-add_argument(p, "--genstrainmodel",
-                help = "Model design for model including all samples (parental and F1). Last term should be GenerationStrain - 
+                help = "Model design for model including all samples (parental and F1). Last term should be GenerationStrain -
                 this will be made by combining generation and strain (or allele2 for F1s) to be able to compare among parental strains and between F1s and their parents.
                 Include any batch or other covariates to regress out! Quote-wrap if any spaces.",
                 default = "~GenerationStrain")
@@ -487,7 +487,7 @@ p<-add_argument(p, "--genstrainlfc",
                 Used to threshold calls that can be significant within DESeq2 testing. Consider matching this to alleleskewthresh (i.e. an alleleskewthresh of 0.6 is equivalent to a fold-change threshold of 1.5, LFC threshold of 0.5849625",
                 default = 0.5849625)
 
-# Arguments about gene inclusion/information 
+# Arguments about gene inclusion/information
 p<-add_argument(p, "--genegff",
                 help = "Path to *genes only* gff3 file containing info on all gene_ids present in input counts file; includes gene location, name, biotype and other information.",
                 type = "character")
@@ -521,7 +521,7 @@ p<-add_argument(p, "--genednacov",
                 type = "character")
 p<-add_argument(p, "--dnalowcovthresh",
                 help = "Threshold below which DNA coverages (proved in --genednacov) will be flagged as low coverage in column of output (lowDNACov)",
-                default = 0.25)
+                default = 0.3)
 p<-add_argument(p, "--dnahighcovthresh",
                 help = "Threshold above which DNA coverages (proved in --genednacov) will be flagged as high coverage in column of output (highDNACov)",
                 default = 2)
@@ -573,8 +573,8 @@ if(!is.na(p$allelerename)){ # Fix alleles inherited from EMASE inputs
 # --- Narrow to genes to include for all downstream steps
 # Exclude those excluded from gene information
 ngs.cts<-nrow(cts.tot) # keep record so can say how many originally were in data
-cts.tot<-cts.tot[geneinfo$gene_id, ] 
-cts.ase$cts<-cts.ase$cts[geneinfo$gene_id, ] 
+cts.tot<-cts.tot[geneinfo$gene_id, ]
+cts.ase$cts<-cts.ase$cts[geneinfo$gene_id, ]
 
 # Exclude based on low coverage (total reads < 10 across all samples)
 ngs.prelowcov<-nrow(cts.tot)
@@ -583,7 +583,7 @@ cts.tot<-cts.tot[keep, ]
 cts.ase$cts<-cts.ase$cts[keep, ]
 
 # Print to log genes retained/excluded (Ns)
-cat(paste("       ", length(keep), "genes retained for analysis:", ngs.cts - ngs.prelowcov, "excluded due to input chromosome and/or biotype restrictions;", 
+cat(paste("       ", length(keep), "genes retained for analysis:", ngs.cts - ngs.prelowcov, "excluded due to input chromosome and/or biotype restrictions;",
           ngs.prelowcov - length(keep), "excuded due to low expression (sum of samples' read counts < 10)\n"))
 
 #### Perform ASE testing: F1s only ####
@@ -597,7 +597,7 @@ coldata.ase$Allele<-factor(coldata.ase$Allele)
 if(!is.na(p$aseotherterms)){
   # Figure out what to group within
   grp.within<-strsplit(p$aseotherterms, ",")[[1]]
-  
+
   # Get unique combinations of these (assign groups within these combinations)
   vals.grp.within<-expand.grid(lapply(grp.within, function(x) unique(coldata.ase[,x])), stringsAsFactors = F)
   colnames(vals.grp.within)<-grp.within
@@ -642,7 +642,7 @@ if(is.na(p$aseotherterms)){
                         " + Allele")
   }
 } # end else meaning there are otherterms
-cat(paste("    ASE model design is:", modeldesign, "\n")) 
+cat(paste("    ASE model design is:", modeldesign, "\n"))
 
 # DESeq2 format.
 ## Make sure all combinations of factors exist
@@ -655,7 +655,7 @@ if(sum(all.zero)==0){ # No all-zero columns; proceed with normal DESeq2 procedur
   sizeFactors(dds.ase)<-rep(1, nrow(coldata.ase)) ## set size factors equal (since 2 observations come per individual and individual effects already blocked!)
   cat("....Running F1 DESeq2 ASE analysis ....\n")
   dds.ase<-DESeq(dds.ase)
-  
+
 }else{ # Not all combinations of factors exist
   cat("     NOTE: Levels or combinations of levels without any samples have resulted
       in column(s) of zeros in the model matrix, so model matrix with these columns manually removed
@@ -665,7 +665,7 @@ if(sum(all.zero)==0){ # No all-zero columns; proceed with normal DESeq2 procedur
                                   colData = coldata.ase,
                                   design = ~ Allele) # PLACEHOLDER design
   sizeFactors(dds.ase)<-rep(1, nrow(coldata.ase)) ## set size factors equal (since 2 observations come per individual and individual effects already blocked!)
-  
+
   # Run Wald test providing own model matrix
   dds.ase<-DESeq(dds.ase, test = "Wald", full = mUse, betaPrior = F)
 }
@@ -687,7 +687,7 @@ reslist<-lapply(resnaming.ase$resname, function(x){
   getaseres(dds = dds.ase, resn = x, alpha = p$alpha, skewthresh = p$alleleskewthresh, desuff = ".ASE")
 })
 names(reslist)<-resnaming.ase$allele # allele/strain is name that will carry through
-  
+
 # Beginning gene info annotation (from GFF)
 reslist<-lapply(reslist, function(x){
   return(geneinfo[x])
@@ -720,25 +720,25 @@ if(!dir.exists(pcadir)){dir.create(pcadir, recursive = T)}
 # IF do make these, make bigger axis etc with theme
 # Generation & Strain only
 pdf(file.path(pcadir, paste0(p$baseoutname, "_dds_genstrain_vst_pcaplots.pdf")), 7, 5.5)
-plotPCA_givePCs_colshape(vsd, colgroup = "Strain", shapegroup = "Generation", ntop = 500, 
+plotPCA_givePCs_colshape(vsd, colgroup = "Strain", shapegroup = "Generation", ntop = 500,
                          xpc = 1, ypc = 2, mytitle = "vst-transformed 500 most variable genes")
-plotPCA_givePCs_colshape(vsd, colgroup = "Strain", shapegroup = "Generation", ntop = 500, 
+plotPCA_givePCs_colshape(vsd, colgroup = "Strain", shapegroup = "Generation", ntop = 500,
                          xpc = 2, ypc = 3, mytitle = "vst-transformed 500 most variable genes")
-plotPCA_givePCs_colshape(vsd, colgroup = "Strain", shapegroup = "Generation", ntop = 500, 
+plotPCA_givePCs_colshape(vsd, colgroup = "Strain", shapegroup = "Generation", ntop = 500,
                          xpc = 3, ypc = 4, mytitle = "vst-transformed 500 most variable genes")
 invisible(dev.off())
 # Also with one other variable if included in model (only implemented for one!)
 if(!is.na(p$aseotherterms)){
   pdf(file.path(pcadir, paste0(p$baseoutname, "_dds_genstrain_vst_pcaplots_with", grp.within[1], ".pdf")), 7, 5.5)
   # this fn returns plot so it needs to be printed
-  print(plotPCA_givePCs_colshapesz(vsd, colgroup = "Strain", shapegroup = "Generation", sizeby = grp.within[1], 
-                                   sizeptval = reflevels[colname==grp.within[1], reflevel], ntop = 500, 
+  print(plotPCA_givePCs_colshapesz(vsd, colgroup = "Strain", shapegroup = "Generation", sizeby = grp.within[1],
+                                   sizeptval = reflevels[colname==grp.within[1], reflevel], ntop = 500,
                                    xpc = 1, ypc = 2, mytitle = "vst-transformed 500 most variable genes"))
-  print(plotPCA_givePCs_colshapesz(vsd, colgroup = "Strain", shapegroup = "Generation", sizeby = grp.within[1], 
-                                   sizeptval = reflevels[colname==grp.within[1], reflevel], ntop = 500, 
+  print(plotPCA_givePCs_colshapesz(vsd, colgroup = "Strain", shapegroup = "Generation", sizeby = grp.within[1],
+                                   sizeptval = reflevels[colname==grp.within[1], reflevel], ntop = 500,
                                    xpc = 2, ypc = 3, mytitle = "vst-transformed 500 most variable genes"))
-  print(plotPCA_givePCs_colshapesz(vsd, colgroup = "Strain", shapegroup = "Generation", sizeby = grp.within[1], 
-                                   sizeptval = reflevels[colname==grp.within[1], reflevel], ntop = 500, 
+  print(plotPCA_givePCs_colshapesz(vsd, colgroup = "Strain", shapegroup = "Generation", sizeby = grp.within[1],
+                                   sizeptval = reflevels[colname==grp.within[1], reflevel], ntop = 500,
                                    xpc = 3, ypc = 4, mytitle = "vst-transformed 500 most variable genes"))
   invisible(dev.off())
 }
@@ -751,7 +751,7 @@ reslist<-lapply(names(reslist), function(x){
 })
 names(reslist)<-resnaming.ase$allele # allele/strain is name that will carry through
 
-#### Determine informative-ness/unique alignments & annotate results with this info #### 
+#### Determine informative-ness/unique alignments & annotate results with this info ####
 cat("....Parsing and adding information about unique alignments per gene....\n")
 # Get in counts per gene per sample
 unqcts<-freadeqctshapgene(sampids = samps[Generation=="F1", SampleID], geneids = reslist[[1]]$gene_id,
@@ -774,7 +774,7 @@ cat("....Parsing and adding information about hyperdivergent haplotypes....\n")
 # Get hyperdivergent haplotype overlap
 strain2iso<-fread(p$strain2iso, header = T)
 gdiv<-prochypdivbed(divregbed = p$leehypdivbed, geneinfo = reslist[[1]][,.(gene_id, chr, start, end)],
-                    isotypes = strain2iso$isotype)    
+                    isotypes = strain2iso$isotype)
 # Add in to results
 reslist<-lapply(names(reslist), function(x){
   div.x<-gdiv[,.(gene_id, get(paste0(strain2iso[strain==x, isotype], ".div")))]
@@ -782,7 +782,7 @@ reslist<-lapply(names(reslist), function(x){
   out<-div.x[reslist[[x]]]
   setcolorder(out, c(names(geneinfo), "hypdiv"))
   return(out)
-})  
+})
 names(reslist)<-resnaming.ase$allele # allele/strain is name that will carry through
 
 #### Annotate with gene DNA coverage information #####

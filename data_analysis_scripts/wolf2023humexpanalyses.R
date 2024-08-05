@@ -31,7 +31,7 @@ anovatuk<-function(dat, columnname, testagainstcol = "testDat", colorvec){
   # Runs an ANOVA of category vs. test data (all in all date) for one strain, one category
   # In: dat - data with columns any specified in multiwaytests (columnname, mynarrow), testagainstcol
   #     mystrain - strain to narrow to for this test
-  #             columnname (column CATEGORY data is in alldat), 
+  #             columnname (column CATEGORY data is in alldat),
   #     testagisntcol - column name in alldat that's the y axis/continuous data to test against
   #     colorvec - named in order vector of all category values; used for ordering results
   # Out: list of data.tables -
@@ -55,7 +55,7 @@ anovatuk<-function(dat, columnname, testagainstcol = "testDat", colorvec){
   #       tuklabs - data.table with columns <column name in testinfo row>, label - < or > if this category is p < 0.05 different from FIRST category in this datat
   #           (for plotting)
   #       ns - data.table with columns categorylabel, n: number of observations in each category (that are non-NA!!)
-  
+
   # Narrow data to that of interest
   thisdat<-copy(dat)
   yvals<-thisdat[, get(testagainstcol)] # naming for prettier stats calls, returns
@@ -64,15 +64,15 @@ anovatuk<-function(dat, columnname, testagainstcol = "testDat", colorvec){
   # ns
   ns<-data.table(as.matrix(data.table(catvals, yvals)[!is.na(yvals), table(catvals)]), keep.rownames = T)
   setnames(ns, c("categorylabel", "n"))
-  
+
   # ANOVA
   myan<-anova(lm(yvals ~ catvals))
   anout<-data.table( Df_resid = myan$Df[2], SumSq_resid = myan$`Sum Sq`[2], MeanSq_resid = myan$`Mean Sq`[2],
-                     Df_category = myan$Df[1], SumSq_category = myan$`Sum Sq`[1], 
+                     Df_category = myan$Df[1], SumSq_category = myan$`Sum Sq`[1],
                      MeanSq_category = myan$`Mean Sq`[1], Fvalue = myan$`F value`[1], pvalue = myan$`Pr(>F)`[1])
   # one way so just saving in one row
-  
-  # Tukey's HSD 
+
+  # Tukey's HSD
   mytuk<-TukeyHSD(aov(yvals ~ catvals)) # NOTE my design likely not balanced
   ## get categories separate: UPDATED way that doesn't rely on a given character not being in names. **Confirmed that given that levels = names(colorvec), this is true
   ##   also updated to work if not all categories are actually in data...
@@ -84,13 +84,13 @@ anovatuk<-function(dat, columnname, testagainstcol = "testDat", colorvec){
       })
     }),
     recursive = F)
-  
+
   tukout<-data.table(comparison = rownames(mytuk[[1]]), # maybeeee add column with rownames from tuk so if something's weird, can confirm
                      cat1 = sapply(mycomps, function(x) x[1]),
                      cat2 = sapply(mycomps, function(x) x[2]),
                      mytuk[[1]])
   setnames(tukout, "p adj", "tukey.padj")
-  
+
   # LABELS based on ANOVA and TUKEY results for comparison vs. first (reference level) - not for saving, for plotting
   ## asterisk if p < 0.05; next line is '>' if mean is larger than reference category, '<' if less than reference category
   mycats<-names(colorvec)
@@ -111,7 +111,7 @@ anovatuk<-function(dat, columnname, testagainstcol = "testDat", colorvec){
                         label = "")
   }
   setnames(tuklabs, "cat1", columnname) # Name so it's same column name as in overall data
-  
+
   # Return
   return(list(anout = anout, tukout = tukout, tuklabs = tuklabs, ns = ns))
 }
@@ -130,7 +130,7 @@ sinawmed<-function(datin, xcol = "signifAtThresholds.ASE", ycol = "pSegSites", f
   #     colorcol, name of column containing values to color by (factors)
   #     colorvec, named vector specifying colors for each value of colorcol in order they should be on plot. Names are values, values are colors
   #     boxcol, color for boxplot outline. Recommend including transparency IN this color
-  #     faclabels, optional (put F to exclude) data.table specifying labels for each facet, i.e. p-values or the like. 
+  #     faclabels, optional (put F to exclude) data.table specifying labels for each facet, i.e. p-values or the like.
   #         must have columns facrow value, faccol value, label (label has actual text to include)
   #     myxlab, x axis label
   #     myylab, y axis label
@@ -138,7 +138,7 @@ sinawmed<-function(datin, xcol = "signifAtThresholds.ASE", ycol = "pSegSites", f
   #     mysubt, subtitle
   #     myscales, passed to facetting scales=
   #     facvec, vector of values facet take to ORDER FACCROW BY (i.e., makes this a factor leveled this way)
-  
+
   # Make sure stuff is in right order
   pdat<-copy(datin)
   ## try if factors are here - they are!
@@ -148,14 +148,14 @@ sinawmed<-function(datin, xcol = "signifAtThresholds.ASE", ycol = "pSegSites", f
   }else{
     pdat[, myxcol:=get(xcol)]
   }
-  
+
   # Plot
-  plt<-ggplot(pdat, aes(myxcol, eval(as.name(ycol)))) + 
+  plt<-ggplot(pdat, aes(myxcol, eval(as.name(ycol)))) +
     ggforce::geom_sina(aes(color = mycol), alpha = 0.3, size = 0.2) +
     geom_boxplot(outlier.color = NA, alpha = 0, col = boxcol, coef = 0, lwd = 0.2) + # this boxplot shows just median and IQR
     scale_color_manual(values = colorvec) +
     xlab(myxlab) + ylab(myylab) + ggtitle(mytitle, subtitle = mysubt) +
-    theme_bw() + theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14), 
+    theme_bw() + theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14),
                        axis.title.y = element_text(size = 15), axis.text.y = element_text(size = 14),
                        title = element_text(size = 17), legend.position = "none",
                        plot.subtitle = element_text(size = 15), strip.text.x = element_text(size = 13),
@@ -166,12 +166,12 @@ sinawmed<-function(datin, xcol = "signifAtThresholds.ASE", ycol = "pSegSites", f
       if(facvec[1]!=""){ # need to add leveling in here for it to propagate through
         plt<-plt + facet_wrap(~factor(eval(as.name(facrow)), levels = facvec), scales = myscales)
       }else{
-        plt<-plt + facet_wrap(~eval(as.name(facrow)), scales = myscales) 
+        plt<-plt + facet_wrap(~eval(as.name(facrow)), scales = myscales)
       }
     }else{
-      plt<-plt + facet_grid(eval(as.name(facrow))~eval(as.name(faccol)), scales = myscales) 
+      plt<-plt + facet_grid(eval(as.name(facrow))~eval(as.name(faccol)), scales = myscales)
     }
-    
+
     # Add labels if provided
     if(is.data.table(faclabels)){ # thanks to https://stackoverflow.com/questions/11889625/annotating-text-on-individual-facet-in-ggplot2
       plt<-plt + geom_text(
@@ -183,25 +183,25 @@ sinawmed<-function(datin, xcol = "signifAtThresholds.ASE", ycol = "pSegSites", f
       )
     }
   }
-  
+
   # Other code
   # stat_summary(fun = "median", geom = "point", col = "red") +# this auto-computes and adds the medians! but couldn't figure out making it horizontal bar easily
   # geom_point(stat = "summary", fun = median, color = "red") + # this auto-computes and adds the medians! but couldn't figure out making it horizontal bar easily
-  
-  
+
+
   # Deal with if want scales to be free or not, or to do both
   # May want to re-order strains, sites - provide something with it factor-ized if so
   return(plt)
 }
 
 #### Arguments & Inputs ####
-p<-arg_parser("Looks at mean expression vs. variation data from Wolf et al 2023: https://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1010833", 
+p<-arg_parser("Looks at mean expression vs. variation data from Wolf et al 2023: https://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1010833",
               name = "wolf2023humexpanalyses.R", hide.opts = TRUE)
 
 # Inputs
 p<-add_argument(p, "--wolfsupp4",
                 help = "Filepath to S4 Data from Wolf et al 2023 (https://doi.org/10.1371/journal.pgen.1010833.s013), across study rank xlsx data tab as tab-delimited file",
-                default = "~/Dropbox (GaTech)/BioSci-Paaby-Ext/AlleleSpecificExpression/RelatedGenomeAnalysis/Wolf_PLoSGen_Human_2023_suppdata/s4dataset_across_study_rank.txt")
+                type = "character")
 
 # Outputs
 p<-add_argument(p, "--outdir",
@@ -223,16 +223,16 @@ expdat<-fread(p$wolfsupp4, header = T)
 meansdcor<-allcors(x = expdat$Mean.Rank, y = expdat$SD.Rank, info = "Mean rank vs SD rank")
 
 # Plot
-sctplot<-ggplot(expdat, aes(SD.Rank, Mean.Rank)) + geom_point(alpha = 0.2) + 
+sctplot<-ggplot(expdat, aes(SD.Rank, Mean.Rank)) + geom_point(alpha = 0.2) +
   ggtitle("Human gene expression mean, variation rankings", subtitle = "from Wolf et al 2023") +
-  theme_bw() + theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14), 
+  theme_bw() + theme(axis.title.x = element_text(size = 15), axis.text.x = element_text(size = 14),
                      axis.title.y = element_text(size = 15), axis.text.y = element_text(size = 14),
                      title = element_text(size = 16), legend.position = "none",
                      plot.subtitle = element_text(size = 15), strip.text.x = element_text(size = 13),
                      strip.text.y = element_text(size = 14))
 
 # Save these results/plots
-write.table(meansdcor, 
+write.table(meansdcor,
             file.path(p$outdir, paste0(p$baseoutname, "_cortestresults_meanrankvssdrank.txt")),
             sep = "\t", quote = F, row.names = F)
 pdf(file.path(p$outdir, paste0(p$baseoutname, "_scatterplot_meanrankvssdrank.pdf")), 6, 6)
@@ -252,16 +252,16 @@ names(deccol)<-1:10
 
 ## ANOVAs - not best stat but quickest here
 anres<-anovatuk(dat = expdat, columnname ="decile", testagainstcol = "Mean.Rank", colorvec = deccol)
-write.table(anres$anout, 
+write.table(anres$anout,
             file.path(p$outdir, paste0(p$baseoutname, "_ANOVAresults_sddecileVsmeanrank.txt")),
             sep = "\t", quote = F, row.names = F)
-write.table(anres$tukout, 
+write.table(anres$tukout,
             file.path(p$outdir, paste0(p$baseoutname, "_ANOVAresults_tukey_sddecileVsmeanrank.txt")),
             sep = "\t", quote = F, row.names = F)
 
 ## Sina plot
 pdf(file.path(p$outdir, paste0(p$baseoutname, "_sinaplot_sddecileVsmeanrank.pdf")), 7.5, 6)
-sinawmed(datin = expdat, xcol = "decile", ycol = "Mean.Rank", facrow = NA, faccol = NA, colorcol = "decile", 
+sinawmed(datin = expdat, xcol = "decile", ycol = "Mean.Rank", facrow = NA, faccol = NA, colorcol = "decile",
          colorvec = deccol, myxlab = "Decile of gene expression variability", myylab = "Gene expression (rank, mean)",
          mytitle = "Human gene expression mean, variation rankings", mysubt = "from Wolf et al 2023",
          boxcol = "red4")

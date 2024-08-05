@@ -19,16 +19,16 @@ params.strains = "" // Path to no-header list of strains to process - should be 
 params.sampleinfo = "" // Path to tab-delimited file containing sample information. Column names (descriptions): SampleID (sample ID as in input filenames, to be used in output filenames); Strain (strain whose strain-specific ornaments/kallisto index should be used); RefDescrip (description of reference genome(s) to use in output file names)
 params.out= "" // Parent output directory. Will be created if doesn't exist.
 params.fastqdir = "" // Directory containing all fastq.gz files to process. One or more per sample. **for paired end, this assumes fastqs are internal to sample-named directories here.
-params.vcf = "/storage/coda1/p-apaaby3/0/shared/datasets/cendr-data/vcfs-20220216/WI.20220216.hard-filter.isotype.vcf.gz" // path to VCF containing all samples of interest.
-params.gtf = "/storage/coda1/p-apaaby3/0/shared/referenceresources/celegans_n2_ws283/c_elegans.PRJNA13758.WS283.canonical_geneset.gtf" // Path to GTF annotation file **same build/version/format/etc as used in VCF creation and transcritome FASTA
-params.trfa = "/storage/coda1/p-apaaby3/0/shared/referenceresources/celegans_n2_ws283/c_elegans.PRJNA13758.WS283.mRNA_transcripts.fa" // Path to transcriptome fasta **same build/version/format/etc as used in VCF creation and GTF
+params.vcf = "WI.20220216.hard-filter.isotype.vcf.gz" // path to VCF containing all samples of interest.
+params.gtf = "c_elegans.PRJNA13758.WS283.canonical_geneset.gtf" // Path to GTF annotation file **same build/version/format/etc as used in VCF creation and transcritome FASTA
+params.trfa = "c_elegans.PRJNA13758.WS283.mRNA_transcripts.fa" // Path to transcriptome fasta **same build/version/format/etc as used in VCF creation and GTF
 
 // Inputs: run kallisto?
 params.kallisto =  true // if true, kallisto run on strain-specific indexes (after creating them), if not, it isn't
 
 // Inputs: do initial R script post ornaments
 params.ornamentsrscript = true // if true, runs ornaments_initplots_data2gene.R. Only need to fill in the next options if true.
-params.rscriptdir = "/storage/coda1/p-apaaby3/0/shared/labmembers/abell65/scripts/rnaseq/ase" // Directory containing ornaments_initplots_data2gene.R script
+params.rscriptdir = "" // Directory containing ornaments_initplots_data2gene.R script
 params.plotsampinfo = "" // path to plot script formatted sample info:  Path to sample information file containing
 //			                      information on parental and F1 samples. Columns
 //			                      should include: SampleID, Generation (Parental or
@@ -40,8 +40,8 @@ params.plotsampinfo = "" // path to plot script formatted sample info:  Path to 
 //                      be the way you want them to show up in outputs)
 params.plotbaseoutname = "out" // Base name for all plot output files
 params.plotstrains = "" // Path to strains ordered as desired in plot. **Strains, not isotypes, probably
-params.tx2genef = "/storage/coda1/p-apaaby3/0/shared/referenceresources/celegans_n2_ws283/c_elegans.PRJNA13758.WS283.transcripts2genes.txt.gz" // Path to file mapping transcripts to genes. Two columns (transcript ID, gene ID), no header.
-params.genegff = "/storage/coda1/p-apaaby3/0/shared/referenceresources/celegans_n2_ws283/c_elegans.PRJNA13758.WS283.annotations.genesonly.gff3.gz" // Path to *genes only* gff3 file containing info on all gene_ids present in input counts file; includes gene location, name, biotype and other information.
+params.tx2genef = "" // Path to file mapping transcripts to genes. Two columns (transcript ID, gene ID), no header.
+params.genegff = "" // Path to *genes only* gff3 file containing info on all gene_ids present in input counts file; includes gene location, name, biotype and other information.
 params.plotexclchrs = "mtDNA" // Optional comma-separated, no space list of
 //			                      chromosomes to exclude entirely from plots/downstream analyses (named as in
 //			                      genegff). E.g. MtDNA cat be smart to exclude for
@@ -49,14 +49,14 @@ params.plotexclchrs = "mtDNA" // Optional comma-separated, no space list of
 params.plotinclbiotype = "protein_coding" // Comma-separated list of biotypes (as in genegff) to include in plot processing
 
 // Inputs: Tunable parameters for trimming
-params.trimmodir = "/storage/coda1/p-apaaby3/0/shared/software/trimmomatic-0.39" // Path to trimmomatic v0.39 directory containing jar file and adapters directory (which itself contains the fasta files provided in next option, e.g. TruSeq3-SE.fa).
+params.trimmodir = "" // Path to trimmomatic v0.39 directory containing jar file and adapters directory (which itself contains the fasta files provided in next option, e.g. TruSeq3-SE.fa).
 params.trimmofa = "TruSeq3-PE-2.fa" // name of fasta file within trimmodir adapters/ directory matching those used in library preparation
 params.trimmoseedmism = 1 // Input to trimmomatic ILLUMINACLIP. How many of 16 bp can mismatch and still be counted as match.
 params.trimmoadapclipthresh = 12 // Input to trimmomatic ILLUMINACLIP. How accurate match between adapter sequence and read must be. Each correct base adds 0.6. They recommend 7-15 (12 bases needed for 7, 25 for 15).
 
 // Inputs: organizational
-params.orndir = "/storage/coda1/p-apaaby3/0/shared/software/ornaments" // Path to ornaments directory where scripts convert_genomic_vcf_to_transcriptomic_vcf.py and reate_personalized_transcriptome.py are
-params.ornconda = '/storage/home/hcoda1/2/abell65/.conda/envs/ornaments' // path to conda environment set up to run ornaments & associated python scripts (as described in ornaments doc)
+params.orndir = "" // Path to ornaments directory where scripts convert_genomic_vcf_to_transcriptomic_vcf.py and reate_personalized_transcriptome.py are
+params.ornconda = '' // path to conda environment set up to run ornaments & associated python scripts (as described in ornaments doc)
 
 // Housekeeping:  create output directories
 // General & trim
