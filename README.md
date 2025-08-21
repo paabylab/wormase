@@ -6,5 +6,6 @@ For more details on the scripts, including inputs and outputs, see file wormase_
 # Citation
 For descriptions of the analyses undertaken by the scripts, the results of the study, and to cite this code or the study, see
 
-Stabilizing selection and adaptation shape cis and trans gene expression variation in C. elegans. Avery Davis Bell, Francisco Valencia, Annalise B Paaby. bioRxiv [2024.10.15.618466](https://www.biorxiv.org/content/10.1101/2024.10.15.618466v1); doi: [https://doi.org/10.1101/2024.10.15.618466](https://doi.org/10.1101/2024.10.15.618466) 
+The regulatory architecture of gene expression variation in Caenorhabditis elegans revealed by multi-strain allele-specific analysis. Avery Davis Bell, Francisco Valencia, Annalise B Paaby. Genetics, Volume 230, Issue 4, iyaf110, [https://doi.org/10.1093/genetics/iyaf110](https://doi.org/10.1093/genetics/iyaf110) 
+
 
